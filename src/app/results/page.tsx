@@ -14,8 +14,8 @@ export default function SearchResultsPage() {
       </Suspense>
 
       {/* Filter and Results Section */}
-      <div className="max-w-[var(--spacing-container-max-width)] 3xl:max-w-[1600px] mx-auto px-6 py-[var(--spacing-stack-lg)] 3xl:py-8">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-[var(--spacing-stack-lg)] 3xl:gap-8">
+      <div className="max-w-container-max-width 3xl:max-w-[1600px] mx-auto px-6 py-[var(--spacing-stack-lg)] 3xl:py-8">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-(--spacing-stack-lg) 3xl:gap-8">
           {/* Side Filters */}
           <FilterSidebar />
 
