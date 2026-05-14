@@ -4,20 +4,20 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useModal } from "@/components/modals/ModalProvider";
 
-export default function LoginPage() {
+export default function SignupPage() {
   const router = useRouter();
-  const { openLoginModal } = useModal();
+  const { openSignupModal } = useModal();
 
   useEffect(() => {
-    // Open the login modal when page is accessed directly
-    openLoginModal();
+    // Open the signup modal when page is accessed directly
+    openSignupModal();
     // Redirect to home after a short delay
     const timer = setTimeout(() => {
       router.push("/");
     }, 100);
 
     return () => clearTimeout(timer);
-  }, [openLoginModal, router]);
+  }, [openSignupModal, router]);
 
   return null;
 }

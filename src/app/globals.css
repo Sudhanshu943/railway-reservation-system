@@ -86,7 +86,7 @@
 }
 
 .animate-train {
-  animation: trainMove 15s linear infinite;
+  animation: trainMove 10s linear infinite;
   position: absolute;
   left: 0;
   will-change: transform;

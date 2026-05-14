@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
+import { ModalProvider } from "@/components/modals/ModalProvider";
 
 export const metadata: Metadata = {
   title: "RailLink - Your Journey Starts Here",
@@ -26,9 +27,11 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <Navbar />
-        <main>{children}</main>
-        <Footer />
+        <ModalProvider>
+          <Navbar />
+          <main>{children}</main>
+          <Footer />
+        </ModalProvider>
       </body>
     </html>
   );
