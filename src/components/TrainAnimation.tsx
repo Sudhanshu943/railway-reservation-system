@@ -11,21 +11,13 @@ export default function TrainAnimation() {
 
             {/* Front Car */}
             <div
-              className="relative flex items-center justify-end bg-primary rounded-l-full pr-2"
+              className="relative flex items-center justify-end bg-primary "
               style={{
                 width: "96px",
                 height: "24px",
               }}
             >
-              {/* Headlight */}
-              <div
-                className="bg-on-primary opacity-50 rounded-full"
-                style={{
-                  width: "16px",
-                  height: "4px",
-                  marginBottom: "4px",
-                }}
-              />
+              
             </div>
 
             {/* Middle Car 1 */}
@@ -63,13 +55,22 @@ export default function TrainAnimation() {
 
             {/* Rear Car */}
             <div
-              className="bg-primary rounded-r"
+              className="relative flex items-center justify-end bg-primary rounded-r-full pr-2"
               style={{
-                width: "80px",
+                width: "96px",
                 height: "24px",
-                borderLeft: "1px solid var(--color-primary-container)",
               }}
-            />
+            >
+            {/* Headlight */}
+              <div
+                className="bg-on-primary opacity-50 rounded-full"
+                style={{
+                  width: "16px",
+                  height: "4px",
+                  marginBottom: "2px",
+                }}
+              />
+              </div>
 
           </div>
         </div>
