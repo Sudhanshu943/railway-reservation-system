@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import RouteCard from "@/components/RouteCard";
 import { trainsAPI } from "@/lib/api";
+import { Train } from "@/data/trains";
 
 interface PopularRoute {
   id: string;
@@ -23,56 +24,48 @@ export default function RoutesSection() {
       try {
         const trains = await trainsAPI.getAll();
 
-interface TrainData {
-  id: number;
-  source: string;
-  destination: string;
-  duration: string;
-  price_ac2?: number;
-  price_ac3?: number;
-  price_sleeper?: number;
-}
+        const routeMap = new Map<
+          string,
+          {
+            source: string;
+            destination: string;
+            price: string;
+            duration: string;
+            trainCount: number;
+          }
+        >();
 
-const routeMap = new Map<
-  string,
-  {
-    source: string;
-    destination: string;
-    price: string;
-    duration: string;
-    trains: TrainData[];
-  }
->();
-
-trains.forEach((train: TrainData) => {
-          const routeKey = `${train.source}-${train.destination}`;
+        trains.forEach((train: Train) => {
+          const routeKey = `${train.departureStation}-${train.arrivalStation}`;
 
           if (!routeMap.has(routeKey)) {
+            const price2AC = train.classes.find((c) => c.code === "2AC")?.price || "N/A";
             routeMap.set(routeKey, {
-              source: train.source,
-              destination: train.destination,
-              price: `₹${
-                train.price_ac2 || train.price_ac3 || train.price_sleeper || 0
-              }`,
+              source: train.departureStation,
+              destination: train.arrivalStation,
+              price: price2AC,
               duration: train.duration,
-              trains: [],
+              trainCount: 0,
             });
           }
 
-          routeMap.get(routeKey)?.trains.push(train);
+          const routeData = routeMap.get(routeKey);
+          if (routeData) {
+            routeData.trainCount += 1;
+          }
         });
 
         const popularRoutes: PopularRoute[] = Array.from(routeMap.entries())
-  .sort(([, a], [, b]) => b.trains.length - a.trains.length)
-  .slice(0, 4)
-  .map(([key, data]) => ({
-    id: key,
-    badge: data.trains.length > 1 ? "Express" : "Standard",
-    route: `${data.source} → ${data.destination}`,
-    price: data.price,
-    duration: data.duration,
-    images: [],
-  }));
+          .sort(([, a], [, b]) => b.trainCount - a.trainCount)
+          .slice(0, 4)
+          .map(([key, data]) => ({
+            id: key,
+            badge: data.trainCount > 1 ? "Express" : "Standard",
+            route: `${data.source} → ${data.destination}`,
+            price: data.price,
+            duration: data.duration,
+            images: [],
+          }));
 
         setRoutes(popularRoutes);
       } catch (error) {
