@@ -5,11 +5,12 @@ import TrainCard from "@/components/TrainCard";
 import FilterSidebar from "@/components/FilterSidebar";
 import { Suspense, useState, useEffect } from "react";
 import { trainsAPI } from "@/lib/api";
+import { Train } from "@/data/trains";
 
 export default function SearchResultsPage() {
-  const [trains, setTrains] = useState([]);
+  const [trains, setTrains] = useState<Train[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchTrains = async () => {

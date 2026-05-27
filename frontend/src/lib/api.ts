@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { Train } from '@/data/trains';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
@@ -20,17 +21,17 @@ apiClient.interceptors.request.use((config) => {
 
 // Trains API
 export const trainsAPI = {
-  getAll: async () => {
+  getAll: async (): Promise<Train[]> => {
     const response = await apiClient.get('/api/trains');
     return response.data;
   },
-  search: async (source: string, destination: string) => {
+  search: async (source: string, destination: string): Promise<Train[]> => {
     const response = await apiClient.get('/api/trains/search', {
       params: { source, destination },
     });
     return response.data;
   },
-  getById: async (id: number) => {
+  getById: async (id: number): Promise<Train> => {
     const response = await apiClient.get(`/api/trains/${id}`);
     return response.data;
   },
