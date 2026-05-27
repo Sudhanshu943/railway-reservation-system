@@ -55,8 +55,8 @@ export default function SearchPanel() {
 
   return (
     <div className="glass-panel p-6">
-      <form onSubmit={handleSearch}>
-        <div className="relative mb-4 grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto_1fr]">
+      <form onSubmit={handleSearch} className="space-y-6">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_auto_1.2fr_0.9fr_auto] xl:items-end">
           <div>
             <FieldLabel>From</FieldLabel>
             <InputShell icon="location_on">
@@ -72,12 +72,12 @@ export default function SearchPanel() {
             </InputShell>
           </div>
 
-          <div className="flex items-end justify-center">
+          <div className="flex justify-center xl:pb-[2px]">
             <button
               type="button"
               onClick={handleSwap}
               aria-label="Swap origin and destination"
-              className="mb-1 inline-flex h-11 w-11 items-center justify-center rounded-full border border-outline-variant bg-surface-container-lowest text-primary shadow-sm transition-all hover:bg-primary-fixed active:scale-95"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-outline-variant bg-surface-container-lowest text-primary shadow-sm transition-all hover:bg-primary-fixed active:scale-95"
             >
               <span className="material-symbols-outlined text-5">
                 swap_horiz
@@ -99,9 +99,7 @@ export default function SearchPanel() {
               />
             </InputShell>
           </div>
-        </div>
 
-        <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
           <div>
             <FieldLabel>Date</FieldLabel>
             <InputShell icon="calendar_month">
@@ -116,26 +114,15 @@ export default function SearchPanel() {
             </InputShell>
           </div>
 
-          <div className="md:col-span-2">
-            <FieldLabel>Class</FieldLabel>
-            <InputShell icon="airline_seat_recline_extra">
-              <select
-                name="travelClass"
-                value={formData.travelClass}
-                onChange={handleChange}
-                className="w-full appearance-none border-none bg-transparent p-0 text-base leading-6 text-on-surface outline-none"
-              >
-                <option>All Classes</option>
-                <option>AC First Class (1A)</option>
-                <option>AC 2 Tier (2A)</option>
-                <option>AC 3 Tier (3A)</option>
-                <option>Sleeper (SL)</option>
-              </select>
-            </InputShell>
-          </div>
+          <button
+            type="submit"
+            className="w-full rounded-2xl bg-secondary px-6 py-3.5 text-base font-semibold text-white transition-all hover:opacity-95 active:scale-95 xl:w-auto"
+          >
+            Search Trains
+          </button>
         </div>
 
-        <div className="mb-8 flex flex-wrap gap-4">
+        <div className="flex flex-wrap gap-4">
           <label className="flex cursor-pointer items-center gap-2">
             <input
               type="checkbox"
@@ -162,13 +149,6 @@ export default function SearchPanel() {
             </span>
           </label>
         </div>
-
-        <button
-          type="submit"
-          className="w-full rounded-2xl bg-secondary py-4 text-2xl font-semibold leading-8 text-white transition-all hover:opacity-95 active:scale-98"
-        >
-          Search Trains
-        </button>
       </form>
     </div>
   );

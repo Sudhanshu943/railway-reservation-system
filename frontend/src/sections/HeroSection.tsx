@@ -2,28 +2,43 @@ import SearchPanel from "@/components/SearchPanel";
 
 export default function HeroSection() {
   return (
-    <section className="hero-gradient relative overflow-hidden px-4 py-16 md:px-6 3xl:py-24">
-      <div className="mx-auto max-w-[1280px]">
-        <div className="mx-auto mb-8 max-w-[720px] text-center 3xl:mb-12">
-          <h1 className="mb-4 text-display-lg-mobile font-bold text-primary md:text-display-lg">
-            India&apos;s Next-Gen Travel Partner.
-          </h1>
-          <p className="mb-8 text-body-lg text-on-surface-variant">
-            Experience lightning-fast bookings, AI-powered seat predictions, and
-            instant refunds for your rail journeys across Bharat.
-          </p>
-          <div className="mx-auto flex w-fit items-center gap-3 rounded-full border border-outline-variant bg-white/70 px-4 py-2 shadow-sm backdrop-blur-md">
-            <span className="material-symbols-outlined text-primary">
+    <section className="hero-gradient relative overflow-hidden px-4 py-14 md:px-6 md:py-20 3xl:py-24">
+      <div className="mx-auto max-w-7xl">
+        <div className="mx-auto mb-10 max-w-3xl text-center md:mb-12">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm backdrop-blur">
+            <span className="material-symbols-outlined text-[18px] text-primary">
               verified_user
             </span>
-            <span className="text-label-md text-on-surface">
-              IRCTC Authorized Partner Agency
-            </span>
+            IRCTC Authorized Partner
           </div>
+
+          <h1 className="mx-auto max-w-4xl text-4xl font-bold tracking-tight text-primary md:text-6xl">
+            Smarter train booking for modern rail travel.
+          </h1>
+
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-on-surface-variant md:text-lg">
+            Search routes faster, compare options clearly, and book your journey
+            with confidence across India.
+          </p>
         </div>
 
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-6xl">
           <SearchPanel />
+        </div>
+
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-slate-600">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            Secure booking flow
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            Transparent pricing
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            Fast search and live status
+          </div>
         </div>
       </div>
     </section>

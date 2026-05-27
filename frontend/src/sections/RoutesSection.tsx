@@ -23,18 +23,28 @@ export default function RoutesSection() {
       try {
         const trains = await trainsAPI.getAll();
 
-        const routeMap = new Map<
-          string,
-          {
-            source: string;
-            destination: string;
-            price: string;
-            duration: string;
-            trains: any[];
-          }
-        >();
+interface TrainData {
+  id: number;
+  source: string;
+  destination: string;
+  duration: string;
+  price_ac2?: number;
+  price_ac3?: number;
+  price_sleeper?: number;
+}
 
-        trains.forEach((train: any) => {
+const routeMap = new Map<
+  string,
+  {
+    source: string;
+    destination: string;
+    price: string;
+    duration: string;
+    trains: TrainData[];
+  }
+>();
+
+trains.forEach((train: TrainData) => {
           const routeKey = `${train.source}-${train.destination}`;
 
           if (!routeMap.has(routeKey)) {

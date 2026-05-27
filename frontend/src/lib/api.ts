@@ -37,12 +37,30 @@ export const trainsAPI = {
 };
 
 // Auth API
+interface RegisterData {
+  name: string;
+  email: string;
+  password: string;
+}
+
+interface LoginResponse {
+  access_token: string;
+  token_type: string;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    phone?: string;
+    is_admin: boolean;
+  };
+}
+
 export const authAPI = {
-  register: async (data: any) => {
+  register: async (data: RegisterData): Promise<LoginResponse> => {
     const response = await apiClient.post('/api/auth/register', data);
     return response.data;
   },
-  login: async (email: string, password: string) => {
+  login: async (email: string, password: string): Promise<LoginResponse> => {
     const response = await apiClient.post('/api/auth/login', {
       email,
       password,

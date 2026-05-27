@@ -1,3 +1,4 @@
+import os
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
@@ -6,7 +7,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from database import get_db, User
 
-SECRET_KEY = "railway_secret_key_2024_secure"
+SECRET_KEY = os.getenv("SECRET_KEY", "railway_secret_key_2024_secure")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 
