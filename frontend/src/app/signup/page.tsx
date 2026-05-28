@@ -2,22 +2,26 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
 import { useModal } from "@/components/modals/ModalProvider";
 
 export default function SignupPage() {
   const router = useRouter();
   const { openSignupModal } = useModal();
+  const { isLoggedIn, loading } = useAuth();
 
   useEffect(() => {
-    // Open the signup modal when page is accessed directly
-    openSignupModal();
-    // Redirect to home after a short delay
-    const timer = setTimeout(() => {
+    // If already logged in, redirect to home
+    if (!loading && isLoggedIn) {
       router.push("/");
-    }, 100);
+      return;
+    }
 
-    return () => clearTimeout(timer);
-  }, [openSignupModal, router]);
+    // Open the signup modal when page is accessed directly
+    if (!loading) {
+      openSignupModal();
+    }
+  }, [isLoggedIn, loading, openSignupModal, router]);
 
   return null;
 }

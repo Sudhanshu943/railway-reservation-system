@@ -36,15 +36,26 @@ export default function RoutesSection() {
         >();
 
         trains.forEach((train: Train) => {
-          const routeKey = `${train.departureStation}-${train.arrivalStation}`;
+          // Support both backend and legacy data formats
+          const source = train.source || train.departureStation || "Unknown";
+          const destination = train.destination || train.arrivalStation || "Unknown";
+          const routeKey = `${source}-${destination}`;
 
           if (!routeMap.has(routeKey)) {
-            const price2AC = train.classes.find((c) => c.code === "2AC")?.price || "N/A";
+            // Get price from backend format or legacy format
+            let price = "N/A";
+            if (train.price_ac2) {
+              price = `₹${train.price_ac2}`;
+            } else if (train.classes && Array.isArray(train.classes)) {
+              const ac2Class = train.classes.find((c) => c.code === "2AC");
+              price = ac2Class?.price || "N/A";
+            }
+
             routeMap.set(routeKey, {
-              source: train.departureStation,
-              destination: train.arrivalStation,
-              price: price2AC,
-              duration: train.duration,
+              source,
+              destination,
+              price,
+              duration: train.duration || "N/A",
               trainCount: 0,
             });
           }

@@ -3,6 +3,8 @@ import "./globals.css";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import { ModalProvider } from "@/components/modals/ModalProvider";
+import { ToastProvider } from "@/context/ToastContext";
+import ToastContainer from "@/components/ToastContainer";
 
 export const metadata: Metadata = {
   title: "RailLink - Your Journey Starts Here",
@@ -27,11 +29,14 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <ModalProvider>
-          <Navbar />
-          <main>{children}</main>
-          <Footer />
-        </ModalProvider>
+        <ToastProvider>
+          <ModalProvider>
+            <Navbar />
+            <main>{children}</main>
+            <Footer />
+            <ToastContainer />
+          </ModalProvider>
+        </ToastProvider>
       </body>
     </html>
   );
