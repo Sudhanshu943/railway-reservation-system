@@ -72,7 +72,7 @@ export default function SearchPanel() {
             </InputShell>
           </div>
 
-          <div className="flex justify-center xl:pb-[2px]">
+          <div className="flex justify-center xl:pb-0.5">
             <button
               type="button"
               onClick={handleSwap}

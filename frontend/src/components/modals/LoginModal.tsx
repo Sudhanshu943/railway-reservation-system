@@ -62,7 +62,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/20 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-100 flex items-center justify-center bg-black/20 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
@@ -162,7 +162,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
           <div className="relative flex items-center py-4">
             <div className="h-px flex-1 bg-outline-variant" />
-            <span className="mx-4 flex-shrink-0 text-sm text-outline">
+            <span className="mx-4 shrink-0 text-sm text-outline">
               or continue with
             </span>
             <div className="h-px flex-1 bg-outline-variant" />

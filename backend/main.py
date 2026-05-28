@@ -174,7 +174,7 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
         return {"access_token": token, "token_type": "bearer", "user": user}
     except Exception as e:
         logger.error(f"Login error: {e}")
-        raise HTTPException(status_code=500, detail="Login failed")
+        raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")
 
 
 @app.get("/api/auth/me", response_model=UserOut, tags=["Authentication"])
