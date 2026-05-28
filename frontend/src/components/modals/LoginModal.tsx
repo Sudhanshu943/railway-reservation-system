@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useModal } from "./ModalProvider";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/context/ToastContext";
 import { authAPI } from "@/lib/api";
 
 interface LoginModalProps {
@@ -14,13 +16,14 @@ interface LoginModalProps {
 export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const router = useRouter();
   const { closeLoginModal, openSignupModal } = useModal();
+  const { login } = useAuth();
+  const { addToast } = useToast();
 
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -29,27 +32,22 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
       ...prev,
       [name]: value,
     }));
-    setError("");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError("");
 
     try {
       const response = await authAPI.login(formData.email, formData.password);
-
-      if (typeof window !== "undefined") {
-        localStorage.setItem("token", response.access_token);
-        localStorage.setItem("user", JSON.stringify(response.user));
-      }
-
-      onClose();
+      login(response.access_token, response.user);
+      addToast(`Welcome back, ${response.user.name}!`, "success");
+      closeLoginModal();
       router.push("/");
     } catch (err: unknown) {
       const error = err as { response?: { data?: { detail?: string } } };
-      setError(error?.response?.data?.detail || "Login failed. Please try again.");
+      const errorMessage = error?.response?.data?.detail || "Login failed. Please try again.";
+      addToast(errorMessage, "error");
     } finally {
       setLoading(false);
     }
@@ -92,12 +90,6 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {error && (
-            <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-
           <div className="flex flex-col gap-2">
             <label className="block text-xs font-bold uppercase tracking-wider text-on-surface">
               Email or Username

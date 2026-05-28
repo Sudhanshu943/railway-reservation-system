@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useModal } from "./ModalProvider";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/context/ToastContext";
 import { authAPI } from "@/lib/api";
 
 interface SignupModalProps {
@@ -13,6 +15,8 @@ interface SignupModalProps {
 export default function SignupModal({ isOpen, onClose }: SignupModalProps) {
   const router = useRouter();
   const { closeSignupModal, openLoginModal } = useModal();
+  const { login } = useAuth();
+  const { addToast } = useToast();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -23,7 +27,6 @@ export default function SignupModal({ isOpen, onClose }: SignupModalProps) {
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -33,20 +36,17 @@ export default function SignupModal({ isOpen, onClose }: SignupModalProps) {
       ...prev,
       [name]: value,
     }));
-
-    setError("");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match");
+      addToast("Passwords do not match", "error");
       return;
     }
 
     setLoading(true);
-    setError("");
 
     try {
       const response = await authAPI.register({
@@ -55,16 +55,14 @@ export default function SignupModal({ isOpen, onClose }: SignupModalProps) {
         password: formData.password,
       });
 
-      if (typeof window !== "undefined") {
-        localStorage.setItem("token", response.access_token);
-        localStorage.setItem("user", JSON.stringify(response.user));
-      }
-
-      onClose();
+      login(response.access_token, response.user);
+      addToast(`Welcome, ${response.user.name}! Account created successfully.`, "success");
+      closeSignupModal();
       router.push("/");
     } catch (err: unknown) {
       const error = err as { response?: { data?: { detail?: string } } };
-      setError(error?.response?.data?.detail || "Signup failed. Please try again.");
+      const errorMessage = error?.response?.data?.detail || "Signup failed. Please try again.";
+      addToast(errorMessage, "error");
     } finally {
       setLoading(false);
     }
@@ -107,12 +105,6 @@ export default function SignupModal({ isOpen, onClose }: SignupModalProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {error && (
-            <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-
           <div className="flex flex-col gap-2">
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-900">
               Full Name

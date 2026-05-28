@@ -7,16 +7,34 @@ export interface TrainClass {
 
 export interface Train {
   id: number;
-  name: string;
-  number: string;
-  runsOn: string;
-  departure: string;
-  departureStation: string;
-  arrival: string;
-  arrivalStation: string;
+  train_number: string;
+  train_name: string;
+  source: string;
+  destination: string;
+  departure_time: string;
+  arrival_time: string;
   duration: string;
-  status: "available" | "limited" | "soldout";
-  classes: TrainClass[];
+  total_seats: number;
+  available_seats: number;
+  price_sleeper: number;
+  price_ac3: number;
+  price_ac2: number;
+  price_ac1: number;
+  price_general: number;
+  days_of_operation: string;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+  // Legacy properties for backward compatibility
+  name?: string;
+  number?: string;
+  runsOn?: string;
+  departure?: string;
+  departureStation?: string;
+  arrival?: string;
+  arrivalStation?: string;
+  status?: "available" | "limited" | "soldout";
+  classes?: TrainClass[];
 }
 
 export const trainsData: Train[] = [
