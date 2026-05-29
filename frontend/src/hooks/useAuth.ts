@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { authAPI } from "@/lib/api";
 
 export interface User {
   id: number;
@@ -33,7 +34,12 @@ export const useAuth = () => {
     setLoading(false);
   }, []);
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await authAPI.logout();
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     setIsLoggedIn(false);

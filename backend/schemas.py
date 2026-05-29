@@ -15,6 +15,10 @@ class UserLogin(BaseModel):
     password: str
 
 
+class GoogleLoginRequest(BaseModel):
+    token: str
+
+
 class UserOut(BaseModel):
     id: int
     name: str
