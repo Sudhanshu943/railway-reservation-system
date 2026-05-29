@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from datetime import timedelta
@@ -6,7 +6,7 @@ import random
 import string
 import logging
 from database import get_db, SessionLocal, User, Train, Booking, create_tables, engine, Base
-from auth import hash_password, verify_password, create_access_token, get_current_user
+from auth import hash_password, verify_password, create_access_token, get_current_user, verify_google_token, ACCESS_TOKEN_EXPIRE_MINUTES
 from schemas import *
 
 # Setup logging
@@ -175,6 +175,71 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
     except Exception as e:
         logger.error(f"Login error: {e}")
         raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")
+
+
+@app.post("/api/auth/google-login", response_model=TokenResponse, tags=["Authentication"])
+def google_login(request: GoogleLoginRequest, response: Response, db: Session = Depends(get_db)):
+    """Login or register user with Google OAuth token"""
+    try:
+        # Verify Google token
+        idinfo = verify_google_token(request.token)
+        
+        email = idinfo.get("email")
+        name = idinfo.get("name", "")
+        google_id = idinfo.get("sub")
+        
+        if not email:
+            raise HTTPException(status_code=400, detail="Email not found in Google token")
+        
+        # Check if user exists
+        user = db.query(User).filter(User.email == email).first()
+        
+        if not user:
+            # Create new user
+            user = User(
+                name=name,
+                email=email,
+                google_id=google_id,
+                hashed_password=None  # No password for Google auth
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            logger.info(f"✓ New Google user registered: {email}")
+        else:
+            # Update google_id if not set
+            if not user.google_id:
+                user.google_id = google_id
+                db.commit()
+                db.refresh(user)
+            logger.info(f"✓ Google user logged in: {email}")
+        
+        # Create JWT token
+        access_token = create_access_token({"sub": user.email})
+        
+        # Set HTTP-only secure cookie
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=True,  # Only send over HTTPS in production
+            samesite="lax",
+            max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        )
+        
+        return {"access_token": access_token, "token_type": "bearer", "user": user}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Google login error: {e}")
+        raise HTTPException(status_code=500, detail=f"Google login failed: {str(e)}")
+
+
+@app.get("/api/auth/logout", tags=["Authentication"])
+def logout(response: Response):
+    """Logout user by clearing cookie"""
+    response.delete_cookie("access_token")
+    return {"message": "Logged out successfully"}
 
 
 @app.get("/api/auth/me", response_model=UserOut, tags=["Authentication"])

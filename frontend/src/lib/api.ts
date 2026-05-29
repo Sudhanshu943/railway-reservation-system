@@ -8,6 +8,7 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // Enable credentials for cookies
 });
 
 // Add token to requests if it exists
@@ -53,6 +54,7 @@ interface LoginResponse {
     email: string;
     phone?: string;
     is_admin: boolean;
+    created_at: string;
   };
 }
 
@@ -67,6 +69,15 @@ export const authAPI = {
       password,
     });
     return response.data;
+  },
+  googleLogin: async (token: string): Promise<LoginResponse> => {
+    const response = await apiClient.post('/api/auth/google-login', {
+      token,
+    });
+    return response.data;
+  },
+  logout: async (): Promise<void> => {
+    await apiClient.get('/api/auth/logout');
   },
   getCurrentUser: async () => {
     const response = await apiClient.get('/api/auth/me');

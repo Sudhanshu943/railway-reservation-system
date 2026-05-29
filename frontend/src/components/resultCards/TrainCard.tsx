@@ -36,15 +36,6 @@ interface TrainCardProps {
   price_ac1?: number;
   price_general?: number;
   days_of_operation?: string;
-  name?: string;
-  number?: string;
-  runsOn?: string;
-  departure?: string;
-  departureStation?: string;
-  arrival?: string;
-  arrivalStation?: string;
-  status?: "available" | "limited" | "soldout";
-  classes?: ClassOption[];
 }
 
 type QuotaTab = "General" | "Tatkal" | "Senior Citizen" | "Ladies";
@@ -66,15 +57,6 @@ export default function TrainCard({
   price_ac1,
   price_general,
   days_of_operation,
-  name,
-  number,
-  runsOn,
-  departure,
-  departureStation,
-  arrival,
-  arrivalStation,
-  status,
-  classes,
 }: TrainCardProps) {
   const router = useRouter();
   const { isLoggedIn } = useAuth();
@@ -83,15 +65,15 @@ export default function TrainCard({
   const [activeQuota, setActiveQuota] = useState<QuotaTab>("General");
   const [activeClass, setActiveClass] = useState<string>("SL");
 
-  const trainName = train_name || name || "Unknown Train";
-  const trainNumber = train_number || number || "N/A";
-  const fromStation = source || departureStation || "Unknown";
-  const toStation = destination || arrivalStation || "Unknown";
-  const depTime = departure_time || departure || "00:00";
-  const arrTime = arrival_time || arrival || "00:00";
-  const runDays = days_of_operation || runsOn || "Unknown";
+  const trainName = train_name || "Unknown Train";
+  const trainNumber = train_number || "N/A";
+  const fromStation = source || "Unknown";
+  const toStation = destination || "Unknown";
+  const depTime = departure_time || "00:00";
+  const arrTime = arrival_time || "00:00";
+  const runDays = days_of_operation || "Unknown";
 
-  let trainStatus: "available" | "limited" | "soldout" = status || "available";
+  let trainStatus: "available" | "limited" | "soldout" = "available";
 
   if (available_seats !== undefined && total_seats !== undefined) {
     if (available_seats === 0) trainStatus = "soldout";
@@ -153,7 +135,7 @@ export default function TrainCard({
         : null,
     ].filter(Boolean) as ClassOption[];
 
-    return backendFares.length > 0 ? backendFares : classes || [];
+    return backendFares;
   }, [
     price_sleeper,
     price_ac3,
@@ -161,7 +143,6 @@ export default function TrainCard({
     price_ac1,
     price_general,
     available_seats,
-    classes,
   ]);
 
   const availabilityRows = useMemo(() => {

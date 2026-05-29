@@ -8,6 +8,8 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from database import get_db, User
 import logging
+from google.auth.transport import requests
+from google.oauth2 import id_token
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -18,6 +20,7 @@ load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY", "railway-secret-key-change-in-production-2024")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -58,3 +61,20 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         logger.warning(f"User not found: {email}")
         raise credentials_exception
     return user
+
+
+def verify_google_token(token: str) -> dict:
+    """Verify Google ID token and return token info"""
+    try:
+        idinfo = id_token.verify_oauth2_token(token, requests.Request(), GOOGLE_CLIENT_ID)
+        
+        if idinfo.get("aud") != GOOGLE_CLIENT_ID:
+            raise ValueError("Token audience doesn't match")
+        
+        return idinfo
+    except Exception as e:
+        logger.error(f"Google token verification failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Google token"
+        )

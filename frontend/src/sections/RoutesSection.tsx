@@ -36,20 +36,14 @@ export default function RoutesSection() {
         >();
 
         trains.forEach((train: Train) => {
-          // Support both backend and legacy data formats
-          const source = train.source || train.departureStation || "Unknown";
-          const destination = train.destination || train.arrivalStation || "Unknown";
+          // Use backend data format
+          const source = train.source || "Unknown";
+          const destination = train.destination || "Unknown";
           const routeKey = `${source}-${destination}`;
 
           if (!routeMap.has(routeKey)) {
-            // Get price from backend format or legacy format
-            let price = "N/A";
-            if (train.price_ac2) {
-              price = `₹${train.price_ac2}`;
-            } else if (train.classes && Array.isArray(train.classes)) {
-              const ac2Class = train.classes.find((c) => c.code === "2AC");
-              price = ac2Class?.price || "N/A";
-            }
+            // Get price from backend format
+            const price = train.price_ac2 ? `₹${train.price_ac2}` : "N/A";
 
             routeMap.set(routeKey, {
               source,

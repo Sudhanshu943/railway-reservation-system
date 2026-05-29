@@ -6,6 +6,7 @@ import { useModal } from "./ModalProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/context/ToastContext";
 import { authAPI } from "@/lib/api";
+import { GoogleLogin } from "@react-oauth/google";
 
 interface SignupModalProps {
   isOpen: boolean;
@@ -66,6 +67,27 @@ export default function SignupModal({ isOpen, onClose }: SignupModalProps) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    setLoading(true);
+    try {
+      const response = await authAPI.googleLogin(credentialResponse.credential);
+      login(response.access_token, response.user);
+      addToast(`Welcome, ${response.user.name}!`, "success");
+      closeSignupModal();
+      router.push("/");
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: string } } };
+      const errorMessage = error?.response?.data?.detail || "Google signup failed. Please try again.";
+      addToast(errorMessage, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleError = () => {
+    addToast("Google signup failed", "error");
   };
 
   const switchToLogin = () => {
@@ -217,24 +239,25 @@ export default function SignupModal({ isOpen, onClose }: SignupModalProps) {
             </button>
           </div>
 
-          <div className="relative flex items-center py-4">
-            <div className="h-px flex-1 bg-slate-200" />
-            <span className="mx-4 shrink-0 text-sm text-slate-400">
-              or continue with
-            </span>
-            <div className="h-px flex-1 bg-slate-200" />
-          </div>
+          {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
+            <>
+              <div className="relative flex items-center py-4">
+                <div className="h-px flex-1 bg-slate-200" />
+                <span className="mx-4 shrink-0 text-sm text-slate-400">
+                  or continue with
+                </span>
+                <div className="h-px flex-1 bg-slate-200" />
+              </div>
 
-            <button
-              type="button"
-              className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-3 transition-all hover:bg-slate-50"
-            >
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                Google
-              </span>
-            </button>
-
-
+              <div className="flex justify-center">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={handleGoogleError}
+                  text="signup_with"
+                />
+              </div>
+            </>
+          )}
 
           <div className="mt-2 border-t border-slate-200 pt-2 text-center">
             <p className="m-0 text-sm text-slate-600">

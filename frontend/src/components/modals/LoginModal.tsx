@@ -7,6 +7,7 @@ import { useModal } from "./ModalProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/context/ToastContext";
 import { authAPI } from "@/lib/api";
+import { GoogleLogin } from "@react-oauth/google";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -51,6 +52,27 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    setLoading(true);
+    try {
+      const response = await authAPI.googleLogin(credentialResponse.credential);
+      login(response.access_token, response.user);
+      addToast(`Welcome, ${response.user.name}!`, "success");
+      closeLoginModal();
+      router.push("/");
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: string } } };
+      const errorMessage = error?.response?.data?.detail || "Google login failed. Please try again.";
+      addToast(errorMessage, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleError = () => {
+    addToast("Google login failed", "error");
   };
 
   const switchToSignup = () => {
@@ -160,24 +182,25 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
             </button>
           </div>
 
-          <div className="relative flex items-center py-4">
-            <div className="h-px flex-1 bg-outline-variant" />
-            <span className="mx-4 shrink-0 text-sm text-outline">
-              or continue with
-            </span>
-            <div className="h-px flex-1 bg-outline-variant" />
-          </div>
+          {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID && (
+            <>
+              <div className="relative flex items-center py-4">
+                <div className="h-px flex-1 bg-outline-variant" />
+                <span className="mx-4 shrink-0 text-sm text-outline">
+                  or continue with
+                </span>
+                <div className="h-px flex-1 bg-outline-variant" />
+              </div>
 
-     
-            <button
-              type="button"
-              className="flex items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-3 transition-all hover:bg-surface-container"
-            >
-              <span className="text-xs font-bold uppercase tracking-wider text-on-surface">
-                Google
-              </span>
-            </button>
-
+              <div className="flex justify-center">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={handleGoogleError}
+                  text="signin_with"
+                />
+              </div>
+            </>
+          )}
 
           <div className="mt-2 border-t border-outline-variant pt-2 text-center">
             <p className="m-0 text-sm text-on-surface-variant">
