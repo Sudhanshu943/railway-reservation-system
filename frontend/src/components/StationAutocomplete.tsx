@@ -105,7 +105,7 @@ export default function StationAutocomplete({
       </div>
 
       {open && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-[0_18px_45px_rgb(8_19_42_/_0.14)]">
+        <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-[0_18px_45px_rgb(8_19_42/0.14)]">
           {loading ? (
             <div className="flex items-center gap-3 px-4 py-3 text-sm text-on-surface-variant">
               <span className="h-2 w-2 animate-pulse rounded-full bg-secondary" />

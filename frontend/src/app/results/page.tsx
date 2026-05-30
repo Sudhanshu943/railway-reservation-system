@@ -1,17 +1,18 @@
 "use client";
 
+import { Suspense } from "react";
 import ResultsSearchBar from "@/components/ResultsSearchBar";
 import FilterSidebar from "@/components/FilterSidebar";
 import ResultsHeaderCard from "@/components/resultCards/ResultsHeaderCard";
 import TrainResultsCard from "@/components/resultCards/TrainResultsCard";
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { trainsAPI } from "@/lib/api";
 import { Train } from "@/data/trains";
+import { useSearchParams } from "next/navigation";
 
 type SortOption = "Earliest Departure" | "Lowest Price" | "Shortest Duration";
 
-export default function SearchResultsPage() {
+function ResultsContent() {
   const searchParams = useSearchParams();
   const [trains, setTrains] = useState<Train[]>([]);
   const [loading, setLoading] = useState(true);
@@ -122,6 +123,14 @@ export default function SearchResultsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SearchResultsPage() {
+  return (
+    <Suspense>
+      <ResultsContent />
+    </Suspense>
   );
 }
 

@@ -1,3 +1,6 @@
+"use client";
+
+import { Suspense } from "react";
 import SearchPanel from "@/components/SearchPanel";
 
 export default function HeroSection() {
@@ -23,7 +26,9 @@ export default function HeroSection() {
         </div>
 
         <div className="relative z-20 mx-auto max-w-6xl">
-          <SearchPanel />
+          <Suspense>
+            <SearchPanel />
+          </Suspense>
         </div>
 
         <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-slate-600">
