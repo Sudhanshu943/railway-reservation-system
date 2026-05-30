@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useModal } from "@/components/modals/ModalProvider";
 
@@ -60,7 +60,9 @@ export default function TrainCard({
   days_of_operation,
 }: TrainCardProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isLoggedIn } = useAuth();
+  const { openLoginModal } = useModal();
 
   const [expanded, setExpanded] = useState(false);
   const [activeQuota, setActiveQuota] = useState<QuotaTab>("General");
@@ -83,97 +85,78 @@ export default function TrainCard({
   }
 
   const statusStyles = {
-    available: "bg-orange-50 text-orange-700 border border-orange-200",
+    available: "bg-green-50 text-green-700 border border-green-200",
     limited: "bg-amber-50 text-amber-700 border border-amber-200",
     soldout: "bg-slate-100 text-slate-600 border border-slate-200",
   };
 
   const fareOptions = useMemo(() => {
+    // Derive availability label from actual available_seats
+    const seatsLabel = (available_seats ?? 0) > 0
+      ? `${available_seats} seats`
+      : "Sold Out";
+    const isBookable = !!(available_seats && available_seats > 0);
+
     const backendFares = [
       price_sleeper !== undefined && price_sleeper > 0
-        ? {
-            code: "SL",
-            price: `₹${price_sleeper.toLocaleString()}`,
-            availability:
-              available_seats && available_seats > 0 ? "WL 58" : "Sold Out",
-            bookable: !!(available_seats && available_seats > 0),
-          }
+        ? { code: "SL", price: `₹${price_sleeper.toLocaleString()}`, availability: seatsLabel, bookable: isBookable }
         : null,
-      price_ac3 !== undefined
-        ? {
-            code: "3A",
-            price: `₹${price_ac3.toLocaleString()}`,
-            availability:
-              available_seats && available_seats > 0 ? "WL 42" : "Sold Out",
-            bookable: !!(available_seats && available_seats > 0),
-          }
+      price_ac3 !== undefined && price_ac3 > 0
+        ? { code: "3A", price: `₹${price_ac3.toLocaleString()}`, availability: seatsLabel, bookable: isBookable }
         : null,
-      price_ac2 !== undefined
-        ? {
-            code: "2A",
-            price: `₹${price_ac2.toLocaleString()}`,
-            availability:
-              available_seats && available_seats > 0 ? "WL 30" : "Sold Out",
-            bookable: !!(available_seats && available_seats > 0),
-          }
+      price_ac2 !== undefined && price_ac2 > 0
+        ? { code: "2A", price: `₹${price_ac2.toLocaleString()}`, availability: seatsLabel, bookable: isBookable }
         : null,
-      price_ac1 !== undefined
-        ? {
-            code: "1A",
-            price: `₹${price_ac1.toLocaleString()}`,
-            availability:
-              available_seats && available_seats > 0 ? "WL 6" : "Sold Out",
-            bookable: !!(available_seats && available_seats > 0),
-          }
+      price_ac1 !== undefined && price_ac1 > 0
+        ? { code: "1A", price: `₹${price_ac1.toLocaleString()}`, availability: seatsLabel, bookable: isBookable }
         : null,
       price_general !== undefined && price_general > 0
-        ? {
-            code: "GEN",
-            price: `₹${price_general.toLocaleString()}`,
-            availability: "General",
-            bookable: false,
-          }
+        ? { code: "GEN", price: `₹${price_general.toLocaleString()}`, availability: "No reservation", bookable: false }
         : null,
     ].filter(Boolean) as ClassOption[];
 
     return backendFares;
-  }, [
-    price_sleeper,
-    price_ac3,
-    price_ac2,
-    price_ac1,
-    price_general,
-    available_seats,
-  ]);
+  }, [price_sleeper, price_ac3, price_ac2, price_ac1, price_general, available_seats]);
 
+  // Generate real upcoming dates from the search date param
   const availabilityRows = useMemo(() => {
-    const basePrice =
-      fareOptions.find((item) => item.code === activeClass)?.price || "₹655";
+    const basePrice = fareOptions.find((item) => item.code === activeClass)?.price || "";
+    const isBookable = !!(available_seats && available_seats > 0);
+    const seatsLabel = isBookable ? `${available_seats} avail` : "Sold Out";
 
-    return [
-      { date: "01 Jun", day: "Mon", status: "WL 58", price: basePrice, bookable: true },
-      { date: "02 Jun", day: "Tue", status: "WL 59", price: basePrice, bookable: true },
-      { date: "03 Jun", day: "Wed", status: "WL 60", price: basePrice, bookable: true },
-      { date: "04 Jun", day: "Thu", status: "WL 50", price: basePrice, bookable: true },
-      { date: "05 Jun", day: "Fri", status: "WL 55", price: basePrice, bookable: true },
-      { date: "06 Jun", day: "Sat", status: "WL 54", price: basePrice, bookable: true },
-    ] as AvailabilityRow[];
-  }, [fareOptions, activeClass]);
+    const searchDate = searchParams.get("date");
+    const startDate = searchDate ? new Date(searchDate) : new Date();
+    startDate.setHours(0, 0, 0, 0);
 
-   const handleBooking = (seatClass: string, bookable: boolean) => {
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(startDate);
+      d.setDate(d.getDate() + i);
+      const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      return {
+        date: `${String(d.getDate()).padStart(2, "0")} ${monthNames[d.getMonth()]}`,
+        day: dayNames[d.getDay()],
+        status: seatsLabel,
+        price: basePrice,
+        bookable: isBookable,
+        ymd: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
+      };
+    }) as (AvailabilityRow & { ymd: string })[];
+  }, [fareOptions, activeClass, available_seats, searchParams]);
+
+   const handleBooking = (seatClass: string, bookable: boolean, rowDate?: string) => {
      if (!bookable) return;
-
      if (!isLoggedIn) {
-       const { openLoginModal } = useModal();
        openLoginModal();
        return;
      }
-
-     router.push(`/booking/${id}?class=${seatClass}&quota=${activeQuota}`);
+     const date = rowDate || searchParams.get("date") || "";
+     const dateParam = date ? `&date=${date}` : "";
+     router.push(`/booking/${id}?class=${seatClass}&quota=${activeQuota}${dateParam}`);
    };
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:border-orange-200">
+    <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:border-primary/20 hover:shadow-md">
       <div className="p-4 sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
@@ -184,39 +167,24 @@ export default function TrainCard({
               <span className="rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
                 {trainNumber}
               </span>
-              <span
-                className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles[trainStatus]}`}
-              >
-                {trainStatus === "available"
-                  ? "Available"
-                  : trainStatus === "limited"
-                  ? "Limited"
-                  : "Sold Out"}
+              <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles[trainStatus]}`}>
+                {trainStatus === "available" ? "Available" : trainStatus === "limited" ? "Limited" : "Sold Out"}
               </span>
             </div>
-
-            <p className="mt-1 text-xs text-slate-500 sm:text-sm">
-              Runs on: {runDays}
-            </p>
+            <p className="mt-1 text-xs text-slate-500 sm:text-sm">Runs on: {runDays}</p>
           </div>
 
           <div className="grid grid-cols-3 items-center gap-4 sm:gap-8 lg:min-w-90">
             <div className="text-left">
-              <p className="text-lg font-semibold text-slate-900 sm:text-xl">
-                {depTime}
-              </p>
+              <p className="text-lg font-semibold text-slate-900 sm:text-xl">{depTime}</p>
               <p className="text-xs text-slate-500 sm:text-sm">{fromStation}</p>
             </div>
-
             <div className="text-center">
               <p className="text-xs font-medium text-slate-500">{duration}</p>
               <div className="mt-2 h-px bg-slate-200" />
             </div>
-
             <div className="text-right">
-              <p className="text-lg font-semibold text-slate-900 sm:text-xl">
-                {arrTime}
-              </p>
+              <p className="text-lg font-semibold text-slate-900 sm:text-xl">{arrTime}</p>
               <p className="text-xs text-slate-500 sm:text-sm">{toStation}</p>
             </div>
           </div>
@@ -227,32 +195,20 @@ export default function TrainCard({
             <button
               key={`${option.code}-${index}`}
               type="button"
-              onClick={() => {
-                setActiveClass(option.code);
-                setExpanded(true);
-              }}
+              onClick={() => { setActiveClass(option.code); setExpanded(true); }}
               className={`rounded-xl border p-3 text-left transition-all ${
                 activeClass === option.code
-                  ? "border-orange-300 bg-orange-50"
+                  ? "border-secondary bg-secondary/10"
                   : option.bookable
-                  ? "border-orange-100 bg-orange-50/50 hover:border-orange-200"
-                  : "border-slate-200 bg-slate-50"
+                  ? "border-slate-200 bg-slate-50 hover:border-secondary/40"
+                  : "border-slate-200 bg-slate-50 opacity-60"
               }`}
             >
               <div className="flex items-start justify-between gap-2">
-                <span className="text-sm font-semibold text-slate-900">
-                  {option.code}
-                </span>
-                <span className="text-sm font-semibold text-slate-900">
-                  {option.price}
-                </span>
+                <span className="text-sm font-semibold text-slate-900">{option.code}</span>
+                <span className="text-sm font-bold text-slate-900">{option.price}</span>
               </div>
-
-              <p
-                className={`mt-2 text-xs sm:text-sm ${
-                  option.bookable ? "text-orange-700" : "text-slate-500"
-                }`}
-              >
+              <p className={`mt-2 text-xs sm:text-sm ${option.bookable ? "text-secondary" : "text-slate-400"}`}>
                 {option.availability}
               </p>
             </button>
@@ -261,13 +217,12 @@ export default function TrainCard({
 
         <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-slate-500">
-            Selected class: <span className="font-medium text-slate-900">{activeClass}</span>
+            Selected: <span className="font-semibold text-slate-900">{activeClass}</span>
           </p>
-
           <button
             type="button"
             onClick={() => setExpanded((prev) => !prev)}
-            className="inline-flex items-center justify-center rounded-lg border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-medium text-orange-700 transition hover:bg-orange-100"
+            className="inline-flex items-center justify-center rounded-lg border border-secondary/30 bg-secondary/10 px-4 py-2 text-sm font-semibold text-secondary transition hover:bg-secondary/20"
           >
             {expanded ? "Hide availability" : "View availability"}
           </button>
@@ -277,73 +232,56 @@ export default function TrainCard({
       {expanded && (
         <div className="border-t border-slate-100 bg-slate-50/60 px-4 py-4 sm:px-5">
           <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-            {(["General", "Tatkal", "Senior Citizen", "Ladies"] as QuotaTab[]).map(
-              (tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setActiveQuota(tab)}
-                  className={`whitespace-nowrap rounded-full px-3 py-2 text-sm font-medium transition ${
-                    activeQuota === tab
-                      ? "bg-orange-500 text-white"
-                      : "bg-white text-slate-600 border border-slate-200 hover:border-orange-200"
-                  }`}
-                >
-                  {tab}
-                </button>
-              )
-            )}
+            {(["General", "Tatkal", "Senior Citizen", "Ladies"] as QuotaTab[]).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveQuota(tab)}
+                className={`whitespace-nowrap rounded-full px-3 py-2 text-sm font-medium transition ${
+                  activeQuota === tab
+                    ? "bg-secondary text-white"
+                    : "bg-white text-slate-600 border border-slate-200 hover:border-secondary/40"
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
           </div>
 
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <div className="hidden grid-cols-[1.2fr_1fr_auto] gap-4 border-b border-slate-100 bg-slate-50 px-4 py-3 text-xs font-medium uppercase tracking-wide text-slate-500 sm:grid">
+            <div className="hidden grid-cols-[1.2fr_1fr_auto] gap-4 border-b border-slate-100 bg-slate-50 px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500 sm:grid">
               <div>Date</div>
-              <div>Status</div>
+              <div>Availability</div>
               <div>Action</div>
             </div>
-
             <div className="divide-y divide-slate-100">
               {availabilityRows.map((row, index) => (
-                <div
-                  key={`${row.date}-${index}`}
-                  className="grid gap-3 px-4 py-4 sm:grid-cols-[1.2fr_1fr_auto] sm:items-center"
-                >
+                <div key={`${row.date}-${index}`} className="grid gap-3 px-4 py-4 sm:grid-cols-[1.2fr_1fr_auto] sm:items-center">
                   <div>
-                    <p className="text-sm font-medium text-slate-900">{row.date}</p>
+                    <p className="text-sm font-semibold text-slate-900">{row.date}</p>
                     <p className="text-xs text-slate-500">{row.day}</p>
                   </div>
-
                   <div>
-                    <p className="text-sm font-medium text-orange-700">{row.status}</p>
+                    <p className={`text-sm font-semibold ${row.bookable ? "text-green-600" : "text-red-500"}`}>{row.status}</p>
                     <p className="text-xs text-slate-500">{activeQuota}</p>
                   </div>
-
                   <div className="sm:text-right">
                     <button
                       type="button"
-                      onClick={() => handleBooking(activeClass, row.bookable)}
+                      onClick={() => handleBooking(activeClass, row.bookable, (row as typeof row & { ymd: string }).ymd)}
                       disabled={!row.bookable}
-                      className={`w-full rounded-lg px-4 py-2 text-sm font-medium sm:w-auto ${
+                      className={`w-full rounded-lg px-4 py-2 text-sm font-semibold sm:w-auto ${
                         row.bookable
-                          ? "bg-orange-500 text-white hover:bg-orange-600"
+                          ? "bg-secondary text-white hover:bg-secondary/90"
                           : "bg-slate-200 text-slate-500 cursor-not-allowed"
                       }`}
                     >
-                      Book {row.price}
+                      {row.bookable ? `Book ${row.price}` : "Unavailable"}
                     </button>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-
-          <div className="mt-3 text-right">
-            <button
-              type="button"
-              className="text-sm font-medium text-orange-700 hover:text-orange-800"
-            >
-              Check more dates
-            </button>
           </div>
         </div>
       )}

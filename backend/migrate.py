@@ -70,3 +70,46 @@ if __name__ == "__main__":
     migrate_add_google_id()
     migrate_make_hashed_password_nullable()
     print("✓ All migrations completed!")
+
+
+def migrate_add_wl_number():
+    """Add wl_number column to bookings table if it doesn't exist"""
+    with engine.connect() as connection:
+        try:
+            # SQLite-compatible check
+            db_url = str(engine.url)
+            if "sqlite" in db_url:
+                result = connection.execute(text("PRAGMA table_info(bookings)"))
+                columns = [row[1] for row in result.fetchall()]
+                if "wl_number" not in columns:
+                    connection.execute(text("ALTER TABLE bookings ADD COLUMN wl_number INTEGER"))
+                    connection.commit()
+                    logger.info("✓ Added wl_number column to bookings table (SQLite)")
+                else:
+                    logger.info("✓ wl_number column already exists")
+            else:
+                # PostgreSQL
+                result = connection.execute(text("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name='bookings' AND column_name='wl_number'
+                    )
+                """))
+                if not result.scalar():
+                    connection.execute(text("ALTER TABLE bookings ADD COLUMN wl_number INTEGER"))
+                    connection.commit()
+                    logger.info("✓ Added wl_number column to bookings table (PostgreSQL)")
+                else:
+                    logger.info("✓ wl_number column already exists")
+        except Exception as e:
+            logger.error(f"Migration error: {e}")
+            raise
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    logger.info("Running database migrations...")
+    migrate_add_google_id()
+    migrate_make_hashed_password_nullable()
+    migrate_add_wl_number()
+    print("✓ All migrations completed!")

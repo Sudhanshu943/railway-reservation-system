@@ -41,6 +41,12 @@ def startup():
         logger.info("Starting application...")
         create_tables()
         logger.info("✓ Database tables created")
+        # Run column migrations for existing databases
+        try:
+            from migrate import migrate_add_wl_number
+            migrate_add_wl_number()
+        except Exception as me:
+            logger.warning(f"Migration warning (non-fatal): {me}")
         seed_data()
         logger.info("✓ Application startup complete")
     except Exception as e:
@@ -280,6 +286,47 @@ def get_train(train_id: int, db: Session = Depends(get_db)):
     return train
 
 
+@app.get("/api/trains/{train_id}/availability", tags=["Trains"])
+def get_train_availability(train_id: int, days: int = 10, db: Session = Depends(get_db)):
+    """Get per-date, per-class seat availability for a train (next N days)"""
+    from sqlalchemy import text
+    rows = db.execute(text("""
+        SELECT
+            journey_date,
+            seat_class,
+            fare,
+            total_seats,
+            available_seats,
+            booked_seats,
+            wl_count,
+            CASE
+                WHEN available_seats > 0 THEN 'AVAILABLE'
+                WHEN wl_count > 0        THEN 'WAITLISTED'
+                ELSE                          'SOLD_OUT'
+            END AS status
+        FROM seat_availability
+        WHERE train_id = :train_id
+          AND journey_date >= CURRENT_DATE
+          AND journey_date < CURRENT_DATE + :days
+          AND is_active = TRUE
+        ORDER BY journey_date, seat_class
+    """), {"train_id": train_id, "days": days}).fetchall()
+
+    return [
+        {
+            "journey_date":    str(r.journey_date),
+            "seat_class":      r.seat_class,
+            "fare":            float(r.fare),
+            "total_seats":     r.total_seats,
+            "available_seats": r.available_seats,
+            "booked_seats":    r.booked_seats,
+            "wl_count":        r.wl_count,
+            "status":          r.status,
+        }
+        for r in rows
+    ]
+
+
 @app.post("/api/trains", response_model=TrainOut, tags=["Trains"])
 def create_train(train_data: TrainCreate, db: Session = Depends(get_db),
                  current_user: User = Depends(get_current_user)):
@@ -306,21 +353,20 @@ def create_train(train_data: TrainCreate, db: Session = Depends(get_db),
 @app.post("/api/bookings", response_model=BookingOut, tags=["Bookings"])
 def create_booking(booking_data: BookingCreate, db: Session = Depends(get_db),
                    current_user: User = Depends(get_current_user)):
-    """Create a new train booking"""
+    """Create a new train booking. Uses seat_availability table for per-date seat tracking."""
     try:
+        from sqlalchemy.orm import joinedload
+        from sqlalchemy import text
+
         train = db.query(Train).filter(Train.id == booking_data.train_id).first()
         if not train:
-            logger.warning(f"Train {booking_data.train_id} not found")
             raise HTTPException(status_code=404, detail="Train not found")
-        if train.available_seats < booking_data.num_passengers:
-            logger.warning(f"Insufficient seats on train {train.id}: available={train.available_seats}, requested={booking_data.num_passengers}")
-            raise HTTPException(status_code=400, detail="Not enough seats available")
 
         price_map = {
             "SLEEPER": train.price_sleeper,
-            "AC_3": train.price_ac3,
-            "AC_2": train.price_ac2,
-            "AC_1": train.price_ac1,
+            "AC_3":    train.price_ac3,
+            "AC_2":    train.price_ac2,
+            "AC_1":    train.price_ac1,
             "GENERAL": train.price_general,
         }
         fare_per_person = price_map.get(booking_data.seat_class, 0)
@@ -329,6 +375,78 @@ def create_booking(booking_data: BookingCreate, db: Session = Depends(get_db),
         pnr = generate_pnr()
         while db.query(Booking).filter(Booking.pnr == pnr).first():
             pnr = generate_pnr()
+
+        # ── Try to reserve seats via seat_availability table ──────────────
+        # Falls back to trains.available_seats if seat_availability not populated yet
+        booking_status = "CONFIRMED"
+        wl_number = None
+
+        # Check if seat_availability table exists and has data for this date
+        sa_check = db.execute(text("""
+            SELECT available_seats, wl_count
+            FROM seat_availability
+            WHERE train_id = :train_id
+              AND journey_date = :journey_date::date
+              AND seat_class = :seat_class
+            LIMIT 1
+        """), {
+            "train_id":    booking_data.train_id,
+            "journey_date": booking_data.journey_date,
+            "seat_class":  booking_data.seat_class,
+        }).fetchone()
+
+        if sa_check is not None:
+            # Use seat_availability for per-date tracking
+            if sa_check.available_seats >= booking_data.num_passengers:
+                # Reserve seats
+                db.execute(text("""
+                    UPDATE seat_availability
+                    SET available_seats = available_seats - :n,
+                        booked_seats    = booked_seats + :n
+                    WHERE train_id = :train_id
+                      AND journey_date = :journey_date::date
+                      AND seat_class = :seat_class
+                """), {
+                    "n":           booking_data.num_passengers,
+                    "train_id":    booking_data.train_id,
+                    "journey_date": booking_data.journey_date,
+                    "seat_class":  booking_data.seat_class,
+                })
+                booking_status = "CONFIRMED"
+                logger.info(f"Reserved {booking_data.num_passengers} seats via seat_availability")
+            else:
+                # Waitlist — increment wl_count and get position
+                result = db.execute(text("""
+                    UPDATE seat_availability
+                    SET wl_count = wl_count + 1
+                    WHERE train_id = :train_id
+                      AND journey_date = :journey_date::date
+                      AND seat_class = :seat_class
+                    RETURNING wl_count
+                """), {
+                    "train_id":    booking_data.train_id,
+                    "journey_date": booking_data.journey_date,
+                    "seat_class":  booking_data.seat_class,
+                }).fetchone()
+                wl_number = result.wl_count if result else 1
+                booking_status = "WAITLISTED"
+                logger.info(f"No seats — waitlisted at WL/{wl_number} via seat_availability")
+        else:
+            # Fallback: seat_availability not set up yet — use trains.available_seats
+            if train.available_seats >= booking_data.num_passengers:
+                train.available_seats -= booking_data.num_passengers
+                booking_status = "CONFIRMED"
+                logger.info(f"Reserved seats via trains.available_seats (fallback)")
+            else:
+                existing_wl = db.query(Booking).filter(
+                    Booking.train_id == booking_data.train_id,
+                    Booking.journey_date == booking_data.journey_date,
+                    Booking.seat_class == booking_data.seat_class,
+                    Booking.status == "WAITLISTED"
+                ).count()
+                wl_number = existing_wl + 1
+                booking_status = "WAITLISTED"
+                logger.info(f"No seats — waitlisted at WL/{wl_number} (fallback)")
 
         booking = Booking(
             pnr=pnr,
@@ -339,14 +457,23 @@ def create_booking(booking_data: BookingCreate, db: Session = Depends(get_db),
             num_passengers=booking_data.num_passengers,
             passenger_names=booking_data.passenger_names,
             total_fare=total_fare,
-            status="CONFIRMED"
+            status=booking_status,
+            wl_number=wl_number,
         )
-        train.available_seats -= booking_data.num_passengers
         db.add(booking)
         db.commit()
-        db.refresh(booking)
-        logger.info(f"✓ Booking created: PNR={pnr}, User={current_user.email}, Train={train.train_number}")
+
+        booking = (
+            db.query(Booking)
+            .options(joinedload(Booking.train), joinedload(Booking.user))
+            .filter(Booking.id == booking.id)
+            .first()
+        )
+        logger.info(f"✓ Booking PNR={pnr} Status={booking_status} User={current_user.email}")
         return booking
+
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         logger.error(f"Booking creation failed: {e}")
@@ -356,15 +483,27 @@ def create_booking(booking_data: BookingCreate, db: Session = Depends(get_db),
 @app.get("/api/bookings/my", response_model=list[BookingOut], tags=["Bookings"])
 def my_bookings(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Get all bookings for current user"""
-    bookings = db.query(Booking).filter(Booking.user_id == current_user.id).all()
+    from sqlalchemy.orm import joinedload
+    bookings = (
+        db.query(Booking)
+        .options(joinedload(Booking.train), joinedload(Booking.user))
+        .filter(Booking.user_id == current_user.id)
+        .all()
+    )
     logger.info(f"Retrieved {len(bookings)} bookings for user {current_user.email}")
     return bookings
 
 
-@app.get("/api/bookings/pnr/{pnr}", tags=["Bookings"])
+@app.get("/api/bookings/pnr/{pnr}", response_model=BookingOut, tags=["Bookings"])
 def check_pnr(pnr: str, db: Session = Depends(get_db)):
     """Check booking status by PNR"""
-    booking = db.query(Booking).filter(Booking.pnr == pnr).first()
+    from sqlalchemy.orm import joinedload
+    booking = (
+        db.query(Booking)
+        .options(joinedload(Booking.train), joinedload(Booking.user))
+        .filter(Booking.pnr == pnr)
+        .first()
+    )
     if not booking:
         logger.warning(f"PNR {pnr} not found")
         raise HTTPException(status_code=404, detail="PNR not found")
@@ -374,19 +513,49 @@ def check_pnr(pnr: str, db: Session = Depends(get_db)):
 @app.delete("/api/bookings/{booking_id}", tags=["Bookings"])
 def cancel_booking(booking_id: int, db: Session = Depends(get_db),
                    current_user: User = Depends(get_current_user)):
-    """Cancel a booking"""
+    """Cancel a booking and release seats back to availability"""
     try:
-        booking = db.query(Booking).filter(Booking.id == booking_id, Booking.user_id == current_user.id).first()
+        from sqlalchemy import text
+        booking = db.query(Booking).filter(
+            Booking.id == booking_id,
+            Booking.user_id == current_user.id
+        ).first()
         if not booking:
-            logger.warning(f"Booking {booking_id} not found or unauthorized for user {current_user.email}")
             raise HTTPException(status_code=404, detail="Booking not found")
+
+        if booking.status == "CANCELLED":
+            raise HTTPException(status_code=400, detail="Booking already cancelled")
+
+        prev_status = booking.status
         booking.status = "CANCELLED"
-        train = db.query(Train).filter(Train.id == booking.train_id).first()
-        if train:
-            train.available_seats += booking.num_passengers
+
+        if prev_status == "CONFIRMED":
+            # Try to release via seat_availability first
+            result = db.execute(text("""
+                UPDATE seat_availability
+                SET available_seats = LEAST(total_seats, available_seats + :n),
+                    booked_seats    = GREATEST(0, booked_seats - :n)
+                WHERE train_id = :train_id
+                  AND journey_date = :journey_date::date
+                  AND seat_class = :seat_class
+            """), {
+                "n":           booking.num_passengers,
+                "train_id":    booking.train_id,
+                "journey_date": str(booking.journey_date),
+                "seat_class":  booking.seat_class,
+            })
+
+            if result.rowcount == 0:
+                # Fallback: release to trains.available_seats
+                train = db.query(Train).filter(Train.id == booking.train_id).first()
+                if train:
+                    train.available_seats += booking.num_passengers
+
         db.commit()
         logger.info(f"✓ Booking {booking_id} cancelled, PNR={booking.pnr}")
         return {"message": "Booking cancelled successfully", "pnr": booking.pnr}
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         logger.error(f"Cancellation failed: {e}")

@@ -120,6 +120,7 @@ class Booking(Base):
     total_fare = Column(Float, nullable=False)
     status = Column(String(50), default="CONFIRMED", index=True)
     passenger_names = Column(String(500), nullable=False)
+    wl_number = Column(Integer, nullable=True)          # WL position, None if confirmed
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     user = relationship("User", back_populates="bookings")

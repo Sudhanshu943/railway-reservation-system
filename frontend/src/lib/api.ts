@@ -85,4 +85,54 @@ export const authAPI = {
   },
 };
 
+// Bookings API
+export interface BookingCreateData {
+  train_id: number;
+  journey_date: string;
+  seat_class: string;
+  num_passengers: number;
+  passenger_names: string;
+}
+
+export interface BookingResponse {
+  id: number;
+  pnr: string;
+  journey_date: string;
+  seat_class: string;
+  num_passengers: number;
+  total_fare: number;
+  status: string;
+  passenger_names: string;
+  wl_number: number | null;
+  created_at: string;
+  train: import('@/data/trains').Train;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    phone?: string;
+    is_admin: boolean;
+    created_at: string;
+  };
+}
+
+export const bookingsAPI = {
+  create: async (data: BookingCreateData): Promise<BookingResponse> => {
+    const response = await apiClient.post('/api/bookings', data);
+    return response.data;
+  },
+  getMyBookings: async (): Promise<BookingResponse[]> => {
+    const response = await apiClient.get('/api/bookings/my');
+    return response.data;
+  },
+  checkPNR: async (pnr: string): Promise<BookingResponse> => {
+    const response = await apiClient.get(`/api/bookings/pnr/${pnr}`);
+    return response.data;
+  },
+  cancel: async (bookingId: number): Promise<{ message: string; pnr: string }> => {
+    const response = await apiClient.delete(`/api/bookings/${bookingId}`);
+    return response.data;
+  },
+};
+
 export default apiClient;

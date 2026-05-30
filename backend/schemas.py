@@ -94,6 +94,7 @@ class BookingOut(BaseModel):
     total_fare: float
     status: str
     passenger_names: str
+    wl_number: Optional[int] = None
     created_at: datetime
     train: TrainOut
     user: UserOut

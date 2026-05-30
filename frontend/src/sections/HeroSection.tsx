@@ -2,7 +2,7 @@ import SearchPanel from "@/components/SearchPanel";
 
 export default function HeroSection() {
   return (
-    <section className="hero-gradient relative overflow-hidden px-4 py-14 md:px-6 md:py-20 3xl:py-24">
+    <section className="hero-gradient relative px-4 py-14 md:px-6 md:py-20 3xl:py-24">
       <div className="mx-auto max-w-7xl">
         <div className="mx-auto mb-10 max-w-3xl text-center md:mb-12">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm backdrop-blur">
@@ -22,7 +22,7 @@ export default function HeroSection() {
           </p>
         </div>
 
-        <div className="mx-auto max-w-6xl">
+        <div className="relative z-20 mx-auto max-w-6xl">
           <SearchPanel />
         </div>
 

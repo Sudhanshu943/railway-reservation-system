@@ -1,26 +1,48 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import DatePicker from "@/components/DatePicker";
 
 export default function SearchPanel() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const today = new Date();
+  const todayYMD = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
   const [formData, setFormData] = useState({
     from: "New Delhi (NDLS)",
     to: "Mumbai Central (MMCT)",
-    date: "",
+    date: todayYMD,
     travelClass: "AC 2 Tier (2A)",
     flexibleDate: false,
     withBerth: true,
   });
+
+  // Pre-fill from URL params when on results page
+  useEffect(() => {
+    const from = searchParams.get("from");
+    const to = searchParams.get("to");
+    const date = searchParams.get("date");
+    const cls = searchParams.get("class");
+    if (from || to || date || cls) {
+      setFormData((prev) => ({
+        ...prev,
+        from: from || prev.from,
+        to: to || prev.to,
+        date: date || prev.date,
+        travelClass: cls || prev.travelClass,
+      }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const target = e.target;
     const { name, value } = target;
-
     setFormData((prev) => ({
       ...prev,
       [name]:
@@ -31,17 +53,12 @@ export default function SearchPanel() {
   };
 
   const handleSwap = () => {
-    setFormData((prev) => ({
-      ...prev,
-      from: prev.to,
-      to: prev.from,
-    }));
+    setFormData((prev) => ({ ...prev, from: prev.to, to: prev.from }));
   };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-
-    const searchParams = new URLSearchParams({
+    const params = new URLSearchParams({
       from: formData.from,
       to: formData.to,
       date: formData.date,
@@ -49,8 +66,7 @@ export default function SearchPanel() {
       flexibleDate: String(formData.flexibleDate),
       withBerth: String(formData.withBerth),
     });
-
-    router.push(`/results?${searchParams.toString()}`);
+    router.push(`/results?${params.toString()}`);
   };
 
   return (
@@ -79,9 +95,7 @@ export default function SearchPanel() {
               aria-label="Swap origin and destination"
               className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-outline-variant bg-surface-container-lowest text-primary shadow-sm transition-all hover:bg-primary-fixed active:scale-95"
             >
-              <span className="material-symbols-outlined text-5">
-                swap_horiz
-              </span>
+              <span className="material-symbols-outlined text-5">swap_horiz</span>
             </button>
           </div>
 
@@ -102,16 +116,11 @@ export default function SearchPanel() {
 
           <div>
             <FieldLabel>Date</FieldLabel>
-            <InputShell icon="calendar_month">
-              <input
-                type="date"
-                name="date"
-                value={formData.date}
-                onChange={handleChange}
-                required
-                className="w-full border-none bg-transparent p-0 text-base leading-6 text-on-surface outline-none"
-              />
-            </InputShell>
+            <DatePicker
+              value={formData.date}
+              onChange={(d) => setFormData((prev) => ({ ...prev, date: d }))}
+              placeholder="Select travel date"
+            />
           </div>
 
           <button
@@ -162,13 +171,7 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function InputShell({
-  icon,
-  children,
-}: {
-  icon: string;
-  children: React.ReactNode;
-}) {
+function InputShell({ icon, children }: { icon: string; children: React.ReactNode }) {
   return (
     <div className="cyan-focus flex items-center rounded-lg border border-outline bg-surface-container-lowest p-3">
       <span className="material-symbols-outlined mr-2 text-5 text-on-surface-variant">
