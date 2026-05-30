@@ -38,6 +38,8 @@ interface PassengerForm {
   gender: "Male" | "Female" | "Other";
 }
 
+
+
 export default function BookingPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -47,7 +49,7 @@ export default function BookingPage() {
   const { openLoginModal } = useModal();
 
   const trainId = Number(params.id);
-  const selectedClass = (searchParams.get("class") || "3A") as string;
+  const requestedClass = (searchParams.get("class") || "3A") as string;
   const quota = searchParams.get("quota") || "General";
   // Date is pre-selected from the search — read from URL, not editable here
   const urlDate = searchParams.get("date") || "";
@@ -56,7 +58,7 @@ export default function BookingPage() {
   const [trainLoading, setTrainLoading] = useState(true);
   const [trainError, setTrainError] = useState<string | null>(null);
 
-  const [journeyDate, setJourneyDate] = useState(urlDate);
+  const journeyDate = urlDate;
   const [numPassengers, setNumPassengers] = useState(1);
   const [passengers, setPassengers] = useState<PassengerForm[]>([
     { name: "", age: "", gender: "Male" },
@@ -67,13 +69,23 @@ export default function BookingPage() {
   const [bookingStatus, setBookingStatus] = useState<"CONFIRMED" | "WAITLISTED">("CONFIRMED");
   const [wlNumber, setWlNumber] = useState<number | null>(null);
 
+  // Helper function to determine available class
+  const getAvailableClass = (train: Train, requestedClass: string): string => {
+    const requestedPriceKey = CLASS_PRICE_KEY[requestedClass];
+    if (requestedPriceKey && Number(train[requestedPriceKey]) > 0) {
+      return requestedClass;
+    }
+    return Object.entries(CLASS_PRICE_KEY).find(([, priceKey]) => Number(train[priceKey]) > 0)?.[0] || "";
+  };
+
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!authLoading && !isLoggedIn) {
-      openLoginModal();
-      router.push("/");
+      const query = searchParams.toString();
+      const bookingUrl = `/booking/${trainId}${query ? `?${query}` : ""}`;
+      openLoginModal(bookingUrl);
     }
-  }, [authLoading, isLoggedIn, openLoginModal, router]);
+  }, [authLoading, isLoggedIn, openLoginModal, searchParams, trainId]);
 
   // Fetch train details
   useEffect(() => {
@@ -90,24 +102,24 @@ export default function BookingPage() {
       }
     };
     fetchTrain();
-  }, [trainId]);
+   }, [trainId]);
 
-  // Sync passenger array length with numPassengers
-  useEffect(() => {
+   const handlePassengerCountChange = (count: number) => {
+    setNumPassengers(count);
     setPassengers((prev) => {
-      if (numPassengers > prev.length) {
+      if (count > prev.length) {
         return [
           ...prev,
-          ...Array.from({ length: numPassengers - prev.length }, () => ({
+          ...Array.from({ length: count - prev.length }, () => ({
             name: "",
             age: "",
             gender: "Male" as const,
           })),
         ];
       }
-      return prev.slice(0, numPassengers);
+      return prev.slice(0, count);
     });
-  }, [numPassengers]);
+  };
 
   const updatePassenger = (
     index: number,
@@ -119,7 +131,8 @@ export default function BookingPage() {
     );
   };
 
-  const pricePerPerson = train
+  const selectedClass = train ? getAvailableClass(train, requestedClass) : requestedClass;
+  const pricePerPerson = train && selectedClass
     ? (train[CLASS_PRICE_KEY[selectedClass]] as number) ?? 0
     : 0;
   const totalFare = pricePerPerson * numPassengers;
@@ -127,6 +140,10 @@ export default function BookingPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!train || !journeyDate) return;
+    if (!selectedClass || pricePerPerson <= 0) {
+      addToast("Selected class is not available for this train", "error");
+      return;
+    }
 
     // Validate all passenger names
     for (let i = 0; i < passengers.length; i++) {
@@ -461,7 +478,7 @@ export default function BookingPage() {
                   </label>
                   <select
                     value={numPassengers}
-                    onChange={(e) => setNumPassengers(Number(e.target.value))}
+                    onChange={(e) => handlePassengerCountChange(Number(e.target.value))}
                     className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400"
                   >
                     {[1, 2, 3, 4, 5, 6].map((n) => (
@@ -546,7 +563,7 @@ export default function BookingPage() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={submitting || !journeyDate}              className="w-full rounded-xl bg-orange-500 py-4 text-sm font-bold text-white transition hover:bg-orange-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={submitting || !journeyDate || !selectedClass || pricePerPerson <= 0}              className="w-full rounded-xl bg-orange-500 py-4 text-sm font-bold text-white transition hover:bg-orange-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting ? "Confirming Booking..." : `Confirm & Book — ₹${totalFare.toLocaleString()}`}
             </button>

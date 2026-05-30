@@ -21,9 +21,19 @@ apiClient.interceptors.request.use((config) => {
 });
 
 // Trains API
+export interface StationSuggestions {
+  sources: string[];
+  destinations: string[];
+  stations: string[];
+}
+
 export const trainsAPI = {
   getAll: async (): Promise<Train[]> => {
     const response = await apiClient.get('/api/trains');
+    return response.data;
+  },
+  getStations: async (): Promise<StationSuggestions> => {
+    const response = await apiClient.get('/api/trains/stations');
     return response.data;
   },
   search: async (source: string, destination: string): Promise<Train[]> => {
@@ -37,6 +47,13 @@ export const trainsAPI = {
     return response.data;
   },
 };
+
+let stationSuggestionsRequest: Promise<StationSuggestions> | null = null;
+
+export function loadStationSuggestions(): Promise<StationSuggestions> {
+  stationSuggestionsRequest ??= trainsAPI.getStations();
+  return stationSuggestionsRequest;
+}
 
 // Auth API
 interface RegisterData {

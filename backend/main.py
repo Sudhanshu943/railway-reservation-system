@@ -5,6 +5,7 @@ from datetime import timedelta
 import random
 import string
 import logging
+import re
 from database import get_db, SessionLocal, User, Train, Booking, create_tables, engine, Base
 from auth import hash_password, verify_password, create_access_token, get_current_user, verify_google_token, ACCESS_TOKEN_EXPIRE_MINUTES
 from schemas import *
@@ -34,6 +35,12 @@ def generate_pnr():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
 
 
+def normalize_station_query(value: str) -> str:
+    """Accept city names or UI labels like 'New Delhi (NDLS)'."""
+    without_codes = re.sub(r"\s*\([^)]*\)\s*", " ", value or "")
+    return re.sub(r"\s+", " ", without_codes).strip()
+
+
 @app.on_event("startup")
 def startup():
     """Initialize database and seed data on startup"""
@@ -43,8 +50,9 @@ def startup():
         logger.info("✓ Database tables created")
         # Run column migrations for existing databases
         try:
-            from migrate import migrate_add_wl_number
+            from migrate import migrate_add_wl_number, migrate_add_wl_count_to_seat_availability
             migrate_add_wl_number()
+            migrate_add_wl_count_to_seat_availability()
         except Exception as me:
             logger.warning(f"Migration warning (non-fatal): {me}")
         seed_data()
@@ -264,15 +272,47 @@ def get_all_trains(db: Session = Depends(get_db)):
     return trains
 
 
+@app.get("/api/trains/stations", tags=["Trains"])
+def get_train_stations(db: Session = Depends(get_db)):
+    """Get station suggestions from active train routes"""
+    sources = [
+        row[0]
+        for row in db.query(Train.source)
+        .filter(Train.is_active == True)
+        .distinct()
+        .order_by(Train.source)
+        .all()
+    ]
+    destinations = [
+        row[0]
+        for row in db.query(Train.destination)
+        .filter(Train.is_active == True)
+        .distinct()
+        .order_by(Train.destination)
+        .all()
+    ]
+
+    return {
+        "sources": sources,
+        "destinations": destinations,
+        "stations": sorted(set(sources + destinations)),
+    }
+
+
 @app.get("/api/trains/search", response_model=list[TrainOut], tags=["Trains"])
 def search_trains(source: str, destination: str, db: Session = Depends(get_db)):
     """Search trains by source and destination"""
+    source_query = normalize_station_query(source)
+    destination_query = normalize_station_query(destination)
+    if not source_query or not destination_query:
+        raise HTTPException(status_code=400, detail="Source and destination are required")
+
     trains = db.query(Train).filter(
-        Train.source.ilike(f"%{source}%"),
-        Train.destination.ilike(f"%{destination}%"),
+        Train.source.ilike(f"%{source_query}%"),
+        Train.destination.ilike(f"%{destination_query}%"),
         Train.is_active == True
     ).all()
-    logger.info(f"✓ Train search: {source} → {destination}, found {len(trains)} trains")
+    logger.info(f"Train search: {source_query} to {destination_query}, found {len(trains)} trains")
     return trains
 
 
@@ -293,22 +333,17 @@ def get_train_availability(train_id: int, days: int = 10, db: Session = Depends(
     rows = db.execute(text("""
         SELECT
             journey_date,
-            seat_class,
-            fare,
-            total_seats,
+            class_type AS seat_class,
+            fare_amount AS fare,
             available_seats,
-            booked_seats,
-            wl_count,
             CASE
                 WHEN available_seats > 0 THEN 'AVAILABLE'
-                WHEN wl_count > 0        THEN 'WAITLISTED'
-                ELSE                          'SOLD_OUT'
+                ELSE 'SOLD_OUT'
             END AS status
         FROM seat_availability
         WHERE train_id = :train_id
           AND journey_date >= CURRENT_DATE
           AND journey_date < CURRENT_DATE + :days
-          AND is_active = TRUE
         ORDER BY journey_date, seat_class
     """), {"train_id": train_id, "days": days}).fetchall()
 
@@ -317,10 +352,7 @@ def get_train_availability(train_id: int, days: int = 10, db: Session = Depends(
             "journey_date":    str(r.journey_date),
             "seat_class":      r.seat_class,
             "fare":            float(r.fare),
-            "total_seats":     r.total_seats,
             "available_seats": r.available_seats,
-            "booked_seats":    r.booked_seats,
-            "wl_count":        r.wl_count,
             "status":          r.status,
         }
         for r in rows
@@ -356,7 +388,7 @@ def create_booking(booking_data: BookingCreate, db: Session = Depends(get_db),
     """Create a new train booking. Uses seat_availability table for per-date seat tracking."""
     try:
         from sqlalchemy.orm import joinedload
-        from sqlalchemy import text
+        from sqlalchemy import inspect, text
 
         train = db.query(Train).filter(Train.id == booking_data.train_id).first()
         if not train:
@@ -370,6 +402,9 @@ def create_booking(booking_data: BookingCreate, db: Session = Depends(get_db),
             "GENERAL": train.price_general,
         }
         fare_per_person = price_map.get(booking_data.seat_class, 0)
+        if fare_per_person <= 0:
+            raise HTTPException(status_code=400, detail="Selected class is not available for this train")
+
         total_fare = fare_per_person * booking_data.num_passengers
 
         pnr = generate_pnr()
@@ -382,55 +417,94 @@ def create_booking(booking_data: BookingCreate, db: Session = Depends(get_db),
         wl_number = None
 
         # Check if seat_availability table exists and has data for this date
-        sa_check = db.execute(text("""
-            SELECT available_seats, wl_count
-            FROM seat_availability
-            WHERE train_id = :train_id
-              AND journey_date = :journey_date::date
-              AND seat_class = :seat_class
-            LIMIT 1
-        """), {
-            "train_id":    booking_data.train_id,
-            "journey_date": booking_data.journey_date,
-            "seat_class":  booking_data.seat_class,
-        }).fetchone()
+        dialect = db.bind.dialect.name if db.bind is not None else ""
+        date_filter = "journey_date = :journey_date" if dialect == "sqlite" else "journey_date = CAST(:journey_date AS DATE)"
+        sa_check = None
+        has_seat_availability = inspect(db.bind).has_table("seat_availability") if db.bind is not None else False
+        sa_columns = set()
+        if has_seat_availability and db.bind is not None:
+            sa_columns = {column["name"] for column in inspect(db.bind).get_columns("seat_availability")}
+
+        class_column = "seat_class" if "seat_class" in sa_columns else "class_type"
+        fare_column = "fare" if "fare" in sa_columns else "fare_amount"
+        wl_column_exists = "wl_count" in sa_columns
+        booked_column_exists = "booked_seats" in sa_columns
+
+        if has_seat_availability:
+            sa_check = db.execute(text(f"""
+                SELECT available_seats
+                FROM seat_availability
+                WHERE train_id = :train_id
+                  AND {date_filter}
+                  AND {class_column} = :seat_class
+                LIMIT 1
+            """), {
+                "train_id":    booking_data.train_id,
+                "journey_date": booking_data.journey_date,
+                "seat_class":  booking_data.seat_class,
+            }).fetchone()
 
         if sa_check is not None:
-            # Use seat_availability for per-date tracking
-            if sa_check.available_seats >= booking_data.num_passengers:
-                # Reserve seats
-                db.execute(text("""
-                    UPDATE seat_availability
-                    SET available_seats = available_seats - :n,
-                        booked_seats    = booked_seats + :n
-                    WHERE train_id = :train_id
-                      AND journey_date = :journey_date::date
-                      AND seat_class = :seat_class
-                """), {
-                    "n":           booking_data.num_passengers,
-                    "train_id":    booking_data.train_id,
-                    "journey_date": booking_data.journey_date,
-                    "seat_class":  booking_data.seat_class,
-                })
+            available_seats = sa_check.available_seats if hasattr(sa_check, "available_seats") else sa_check[0]
+            # Use seat_availability for per-date tracking when a matching row exists
+            if available_seats >= booking_data.num_passengers:
+                if booked_column_exists:
+                    db.execute(text("""
+                        UPDATE seat_availability
+                        SET available_seats = available_seats - :n,
+                            booked_seats    = booked_seats + :n
+                        WHERE train_id = :train_id
+                          AND """ + date_filter + """
+                          AND (seat_class = :seat_class OR class_type = :seat_class)
+                    """), {
+                        "n":            booking_data.num_passengers,
+                        "train_id":     booking_data.train_id,
+                        "journey_date": booking_data.journey_date,
+                        "seat_class":   booking_data.seat_class,
+                    })
+                else:
+                    db.execute(text("""
+                        UPDATE seat_availability
+                        SET available_seats = available_seats - :n
+                        WHERE train_id = :train_id
+                          AND """ + date_filter + """
+                          AND (seat_class = :seat_class OR class_type = :seat_class)
+                    """), {
+                        "n":            booking_data.num_passengers,
+                        "train_id":     booking_data.train_id,
+                        "journey_date": booking_data.journey_date,
+                        "seat_class":   booking_data.seat_class,
+                    })
                 booking_status = "CONFIRMED"
                 logger.info(f"Reserved {booking_data.num_passengers} seats via seat_availability")
             else:
-                # Waitlist — increment wl_count and get position
-                result = db.execute(text("""
-                    UPDATE seat_availability
-                    SET wl_count = wl_count + 1
-                    WHERE train_id = :train_id
-                      AND journey_date = :journey_date::date
-                      AND seat_class = :seat_class
-                    RETURNING wl_count
-                """), {
-                    "train_id":    booking_data.train_id,
-                    "journey_date": booking_data.journey_date,
-                    "seat_class":  booking_data.seat_class,
-                }).fetchone()
-                wl_number = result.wl_count if result else 1
-                booking_status = "WAITLISTED"
-                logger.info(f"No seats — waitlisted at WL/{wl_number} via seat_availability")
+                # Waitlist only if the table tracks it, otherwise fall back to bookings-based WL
+                if wl_column_exists:
+                    result = db.execute(text("""
+                        UPDATE seat_availability
+                        SET wl_count = wl_count + 1
+                        WHERE train_id = :train_id
+                          AND """ + date_filter + """
+                          AND (seat_class = :seat_class OR class_type = :seat_class)
+                        RETURNING wl_count
+                    """), {
+                        "train_id":     booking_data.train_id,
+                        "journey_date": booking_data.journey_date,
+                        "seat_class":   booking_data.seat_class,
+                    }).fetchone()
+                    wl_number = result.wl_count if result else 1
+                    booking_status = "WAITLISTED"
+                    logger.info(f"No seats — waitlisted at WL/{wl_number} via seat_availability")
+                else:
+                    existing_wl = db.query(Booking).filter(
+                        Booking.train_id == booking_data.train_id,
+                        Booking.journey_date == booking_data.journey_date,
+                        Booking.seat_class == booking_data.seat_class,
+                        Booking.status == "WAITLISTED"
+                    ).count()
+                    wl_number = existing_wl + 1
+                    booking_status = "WAITLISTED"
+                    logger.info(f"No seats — waitlisted at WL/{wl_number} (fallback, no wl_count column)")
         else:
             # Fallback: seat_availability not set up yet — use trains.available_seats
             if train.available_seats >= booking_data.num_passengers:
@@ -515,7 +589,7 @@ def cancel_booking(booking_id: int, db: Session = Depends(get_db),
                    current_user: User = Depends(get_current_user)):
     """Cancel a booking and release seats back to availability"""
     try:
-        from sqlalchemy import text
+        from sqlalchemy import inspect, text
         booking = db.query(Booking).filter(
             Booking.id == booking_id,
             Booking.user_id == current_user.id
@@ -531,21 +605,26 @@ def cancel_booking(booking_id: int, db: Session = Depends(get_db),
 
         if prev_status == "CONFIRMED":
             # Try to release via seat_availability first
-            result = db.execute(text("""
-                UPDATE seat_availability
-                SET available_seats = LEAST(total_seats, available_seats + :n),
-                    booked_seats    = GREATEST(0, booked_seats - :n)
-                WHERE train_id = :train_id
-                  AND journey_date = :journey_date::date
-                  AND seat_class = :seat_class
-            """), {
-                "n":           booking.num_passengers,
-                "train_id":    booking.train_id,
-                "journey_date": str(booking.journey_date),
-                "seat_class":  booking.seat_class,
-            })
+            dialect = db.bind.dialect.name if db.bind is not None else ""
+            date_filter = "journey_date = :journey_date" if dialect == "sqlite" else "journey_date = CAST(:journey_date AS DATE)"
+            has_seat_availability = inspect(db.bind).has_table("seat_availability") if db.bind is not None else False
+            result = None
+            if has_seat_availability:
+                result = db.execute(text("""
+                    UPDATE seat_availability
+                    SET available_seats = LEAST(total_seats, available_seats + :n),
+                        booked_seats    = GREATEST(0, booked_seats - :n)
+                    WHERE train_id = :train_id
+                      AND """ + date_filter + """
+                      AND seat_class = :seat_class
+                """), {
+                    "n":           booking.num_passengers,
+                    "train_id":    booking.train_id,
+                    "journey_date": str(booking.journey_date),
+                    "seat_class":  booking.seat_class,
+                })
 
-            if result.rowcount == 0:
+            if result is None or result.rowcount == 0:
                 # Fallback: release to trains.available_seats
                 train = db.query(Train).filter(Train.id == booking.train_id).first()
                 if train:

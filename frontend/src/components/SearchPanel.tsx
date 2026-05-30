@@ -1,42 +1,22 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import DatePicker from "@/components/DatePicker";
+import StationAutocomplete from "@/components/StationAutocomplete";
 
 export default function SearchPanel() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const today = new Date();
-  const todayYMD = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-
-  const [formData, setFormData] = useState({
-    from: "New Delhi (NDLS)",
-    to: "Mumbai Central (MMCT)",
-    date: todayYMD,
-    travelClass: "AC 2 Tier (2A)",
+  const [formData, setFormData] = useState(() => ({
+    from: searchParams.get("from") || "",
+    to: searchParams.get("to") || "",
+    date: searchParams.get("date") || "",
+    travelClass: searchParams.get("class") || "AC 2 Tier (2A)",
     flexibleDate: false,
     withBerth: true,
-  });
-
-  // Pre-fill from URL params when on results page
-  useEffect(() => {
-    const from = searchParams.get("from");
-    const to = searchParams.get("to");
-    const date = searchParams.get("date");
-    const cls = searchParams.get("class");
-    if (from || to || date || cls) {
-      setFormData((prev) => ({
-        ...prev,
-        from: from || prev.from,
-        to: to || prev.to,
-        date: date || prev.date,
-        travelClass: cls || prev.travelClass,
-      }));
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }));
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -58,9 +38,12 @@ export default function SearchPanel() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    const from = normalizeStationInput(formData.from);
+    const to = normalizeStationInput(formData.to);
+
     const params = new URLSearchParams({
-      from: formData.from,
-      to: formData.to,
+      from,
+      to,
       date: formData.date,
       class: formData.travelClass,
       flexibleDate: String(formData.flexibleDate),
@@ -73,20 +56,14 @@ export default function SearchPanel() {
     <div className="glass-panel p-6">
       <form onSubmit={handleSearch} className="space-y-6">
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_auto_1.2fr_0.9fr_auto] xl:items-end">
-          <div>
-            <FieldLabel>From</FieldLabel>
-            <InputShell icon="location_on">
-              <input
-                type="text"
-                name="from"
-                value={formData.from}
-                onChange={handleChange}
-                placeholder="Departure City"
-                required
-                className="w-full border-none bg-transparent p-0 text-base leading-6 text-on-surface outline-none"
-              />
-            </InputShell>
-          </div>
+          <StationAutocomplete
+            label="From"
+            icon="location_on"
+            value={formData.from}
+            onChange={(from) => setFormData((prev) => ({ ...prev, from }))}
+            placeholder="Departure City"
+            stationList="sources"
+          />
 
           <div className="flex justify-center xl:pb-0.5">
             <button
@@ -99,20 +76,14 @@ export default function SearchPanel() {
             </button>
           </div>
 
-          <div>
-            <FieldLabel>To</FieldLabel>
-            <InputShell icon="near_me">
-              <input
-                type="text"
-                name="to"
-                value={formData.to}
-                onChange={handleChange}
-                placeholder="Arrival City"
-                required
-                className="w-full border-none bg-transparent p-0 text-base leading-6 text-on-surface outline-none"
-              />
-            </InputShell>
-          </div>
+          <StationAutocomplete
+            label="To"
+            icon="near_me"
+            value={formData.to}
+            onChange={(to) => setFormData((prev) => ({ ...prev, to }))}
+            placeholder="Arrival City"
+            stationList="destinations"
+          />
 
           <div>
             <FieldLabel>Date</FieldLabel>
@@ -163,21 +134,14 @@ export default function SearchPanel() {
   );
 }
 
+function normalizeStationInput(value: string) {
+  return value.replace(/\s*\([^)]*\)\s*/g, " ").replace(/\s+/g, " ").trim();
+}
+
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
     <label className="mb-1 block text-sm font-semibold leading-5 tracking-wider text-primary">
       {children}
     </label>
-  );
-}
-
-function InputShell({ icon, children }: { icon: string; children: React.ReactNode }) {
-  return (
-    <div className="cyan-focus flex items-center rounded-lg border border-outline bg-surface-container-lowest p-3">
-      <span className="material-symbols-outlined mr-2 text-5 text-on-surface-variant">
-        {icon}
-      </span>
-      {children}
-    </div>
   );
 }

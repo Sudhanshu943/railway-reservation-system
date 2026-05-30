@@ -33,11 +33,6 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Close dropdown on route change
-  useEffect(() => {
-    setDropdownOpen(false);
-  }, [pathname]);
-
   const handleLogout = () => {
     setDropdownOpen(false);
     logout();
@@ -128,6 +123,7 @@ export default function Navbar() {
                   <div className="py-1">
                     <Link
                       href="/my-bookings"
+                      onClick={() => setDropdownOpen(false)}
                       className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 transition-colors hover:bg-slate-50"
                     >
                       <span className="material-symbols-outlined text-base text-slate-400">confirmation_number</span>
@@ -135,6 +131,7 @@ export default function Navbar() {
                     </Link>
                     <Link
                       href="/pnr-status"
+                      onClick={() => setDropdownOpen(false)}
                       className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 transition-colors hover:bg-slate-50"
                     >
                       <span className="material-symbols-outlined text-base text-slate-400">search</span>
@@ -143,6 +140,7 @@ export default function Navbar() {
                     {user.is_admin && (
                       <Link
                         href="/admin"
+                        onClick={() => setDropdownOpen(false)}
                         className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 transition-colors hover:bg-slate-50"
                       >
                         <span className="material-symbols-outlined text-base text-slate-400">admin_panel_settings</span>
@@ -168,14 +166,14 @@ export default function Navbar() {
             <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={openLoginModal}
+                onClick={() => openLoginModal()}
                 className="rounded-lg border border-slate-900 px-5 py-2 text-sm font-bold text-slate-900 transition-all hover:bg-slate-100 active:scale-95"
               >
                 Login
               </button>
               <button
                 type="button"
-                onClick={openSignupModal}
+                onClick={() => openSignupModal()}
                 className="rounded-lg bg-slate-900 px-5 py-2 text-sm font-bold text-white transition-all hover:bg-slate-800 active:scale-95"
               >
                 Register

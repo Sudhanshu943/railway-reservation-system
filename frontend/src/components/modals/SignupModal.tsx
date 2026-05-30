@@ -5,7 +5,8 @@ import { useModal } from "./ModalProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/context/ToastContext";
 import { authAPI } from "@/lib/api";
-import { GoogleLogin } from "@react-oauth/google";
+import { CredentialResponse } from "@react-oauth/google";
+import GoogleCredentialButton from "@/components/GoogleCredentialButton";
 
 interface SignupModalProps {
   isOpen: boolean;
@@ -13,7 +14,7 @@ interface SignupModalProps {
 }
 
 export default function SignupModal({ isOpen, onClose }: SignupModalProps) {
-  const { closeSignupModal, openLoginModal, handleAuthSuccess } = useModal();
+  const { closeSignupModal, openLoginModal, handleAuthSuccess, authRedirectTo } = useModal();
   const { login } = useAuth();
   const { addToast } = useToast();
 
@@ -67,7 +68,11 @@ export default function SignupModal({ isOpen, onClose }: SignupModalProps) {
     }
   };
 
-   const handleGoogleSuccess = useCallback(async (credentialResponse: any) => {
+   const handleGoogleSuccess = useCallback(async (credentialResponse: CredentialResponse) => {
+     if (!credentialResponse.credential) {
+       addToast("Google signup failed", "error");
+       return;
+     }
      setLoading(true);
      try {
        const response = await authAPI.googleLogin(credentialResponse.credential);
@@ -82,15 +87,14 @@ export default function SignupModal({ isOpen, onClose }: SignupModalProps) {
      } finally {
        setLoading(false);
      }
-   }, [authAPI, login, addToast, handleAuthSuccess]);
+   }, [login, addToast, handleAuthSuccess]);
 
    const handleGoogleError = useCallback(() => {
      addToast("Google signup failed", "error");
    }, [addToast]);
 
   const switchToLogin = () => {
-    closeSignupModal();
-    openLoginModal();
+    openLoginModal(authRedirectTo || undefined);
   };
 
   if (!isOpen) return null;
@@ -250,13 +254,11 @@ export default function SignupModal({ isOpen, onClose }: SignupModalProps) {
                 <div className="h-px flex-1 bg-slate-200" />
               </div>
 
-              <div className="flex justify-center">
-                <GoogleLogin
-                  onSuccess={handleGoogleSuccess}
-                  onError={handleGoogleError}
-                  text="signup_with"
-                />
-              </div>
+              <GoogleCredentialButton
+                onSuccess={handleGoogleSuccess}
+                onError={handleGoogleError}
+                text="signup_with"
+              />
             </>
           )}
 

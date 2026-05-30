@@ -66,7 +66,7 @@ export default function TrainCard({
 
   const [expanded, setExpanded] = useState(false);
   const [activeQuota, setActiveQuota] = useState<QuotaTab>("General");
-  const [activeClass, setActiveClass] = useState<string>("SL");
+  const [activeClass, setActiveClass] = useState<string>("");
 
   const trainName = train_name || "Unknown Train";
   const trainNumber = train_number || "N/A";
@@ -118,10 +118,14 @@ export default function TrainCard({
     return backendFares;
   }, [price_sleeper, price_ac3, price_ac2, price_ac1, price_general, available_seats]);
 
+  const selectedFareOption =
+    fareOptions.find((item) => item.code === activeClass) || fareOptions[0];
+  const selectedClass = selectedFareOption?.code || "";
+
   // Generate real upcoming dates from the search date param
   const availabilityRows = useMemo(() => {
-    const basePrice = fareOptions.find((item) => item.code === activeClass)?.price || "";
-    const isBookable = !!(available_seats && available_seats > 0);
+    const basePrice = selectedFareOption?.price || "";
+    const isBookable = !!selectedFareOption?.bookable;
     const seatsLabel = isBookable ? `${available_seats} avail` : "Sold Out";
 
     const searchDate = searchParams.get("date");
@@ -142,18 +146,28 @@ export default function TrainCard({
         ymd: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
       };
     }) as (AvailabilityRow & { ymd: string })[];
-  }, [fareOptions, activeClass, available_seats, searchParams]);
+  }, [selectedFareOption, available_seats, searchParams]);
 
-   const handleBooking = (seatClass: string, bookable: boolean, rowDate?: string) => {
-     if (!bookable) return;
-     if (!isLoggedIn) {
-       openLoginModal();
-       return;
-     }
-     const date = rowDate || searchParams.get("date") || "";
-     const dateParam = date ? `&date=${date}` : "";
-     router.push(`/booking/${id}?class=${seatClass}&quota=${activeQuota}${dateParam}`);
-   };
+  const handleBooking = (seatClass: string, bookable: boolean, rowDate?: string) => {
+    if (!seatClass || !bookable) return;
+
+    const params = new URLSearchParams({
+      class: seatClass,
+      quota: activeQuota,
+    });
+    const date = rowDate || searchParams.get("date") || "";
+    if (date) {
+      params.set("date", date);
+    }
+
+    const bookingUrl = `/booking/${id}?${params.toString()}`;
+    if (!isLoggedIn) {
+      openLoginModal(bookingUrl);
+      return;
+    }
+
+    router.push(bookingUrl);
+  };
 
   return (
     <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:border-primary/20 hover:shadow-md">
@@ -190,14 +204,15 @@ export default function TrainCard({
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-          {fareOptions.map((option, index) => (
+        {fareOptions.length > 0 ? (
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+            {fareOptions.map((option, index) => (
             <button
               key={`${option.code}-${index}`}
               type="button"
               onClick={() => { setActiveClass(option.code); setExpanded(true); }}
               className={`rounded-xl border p-3 text-left transition-all ${
-                activeClass === option.code
+                selectedClass === option.code
                   ? "border-secondary bg-secondary/10"
                   : option.bookable
                   ? "border-slate-200 bg-slate-50 hover:border-secondary/40"
@@ -212,12 +227,17 @@ export default function TrainCard({
                 {option.availability}
               </p>
             </button>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+            No bookable classes are configured for this train.
+          </div>
+        )}
 
         <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-slate-500">
-            Selected: <span className="font-semibold text-slate-900">{activeClass}</span>
+            Selected: <span className="font-semibold text-slate-900">{selectedClass || "None"}</span>
           </p>
           <button
             type="button"
@@ -268,7 +288,7 @@ export default function TrainCard({
                   <div className="sm:text-right">
                     <button
                       type="button"
-                      onClick={() => handleBooking(activeClass, row.bookable, (row as typeof row & { ymd: string }).ymd)}
+                      onClick={() => handleBooking(selectedClass, row.bookable, (row as typeof row & { ymd: string }).ymd)}
                       disabled={!row.bookable}
                       className={`w-full rounded-lg px-4 py-2 text-sm font-semibold sm:w-auto ${
                         row.bookable

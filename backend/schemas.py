@@ -1,6 +1,6 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_serializer
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, date
 
 
 class UserCreate(BaseModel):
@@ -88,7 +88,7 @@ class BookingCreate(BaseModel):
 class BookingOut(BaseModel):
     id: int
     pnr: str
-    journey_date: str
+    journey_date: date
     seat_class: str
     num_passengers: int
     total_fare: float
@@ -101,6 +101,9 @@ class BookingOut(BaseModel):
 
     class Config:
         from_attributes = True
+        json_encoders = {
+            date: lambda v: v.isoformat() if v else None
+        }
 
 
 class PNRCheck(BaseModel):
