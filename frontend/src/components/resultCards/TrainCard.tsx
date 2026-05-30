@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { useModal } from "@/components/modals/ModalProvider";
 
 interface ClassOption {
   code: string;
@@ -159,16 +160,17 @@ export default function TrainCard({
     ] as AvailabilityRow[];
   }, [fareOptions, activeClass]);
 
-  const handleBooking = (seatClass: string, bookable: boolean) => {
-    if (!bookable) return;
+   const handleBooking = (seatClass: string, bookable: boolean) => {
+     if (!bookable) return;
 
-    if (!isLoggedIn) {
-      router.push("/login");
-      return;
-    }
+     if (!isLoggedIn) {
+       const { openLoginModal } = useModal();
+       openLoginModal();
+       return;
+     }
 
-    router.push(`/booking/${id}?class=${seatClass}&quota=${activeQuota}`);
-  };
+     router.push(`/booking/${id}?class=${seatClass}&quota=${activeQuota}`);
+   };
 
   return (
     <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:border-orange-200">
@@ -198,7 +200,7 @@ export default function TrainCard({
             </p>
           </div>
 
-          <div className="grid grid-cols-3 items-center gap-4 sm:gap-8 lg:min-w-[360px]">
+          <div className="grid grid-cols-3 items-center gap-4 sm:gap-8 lg:min-w-90">
             <div className="text-left">
               <p className="text-lg font-semibold text-slate-900 sm:text-xl">
                 {depTime}

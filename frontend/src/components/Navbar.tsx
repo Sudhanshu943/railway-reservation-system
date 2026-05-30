@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/context/ToastContext";
+import { useModal } from "@/components/modals/ModalProvider";
 
 export default function Navbar() {
   const router = useRouter();
   const { isLoggedIn, user, logout } = useAuth();
   const { addToast } = useToast();
+  const { openLoginModal, openSignupModal } = useModal();
 
   const handleLogout = () => {
     logout();
@@ -80,21 +82,21 @@ export default function Navbar() {
             </>
           ) : (
             <>
-              <button
-                type="button"
-                onClick={() => router.push("/login")}
-                className="rounded-lg border border-slate-900 px-6 py-2 text-sm font-bold text-slate-900 transition-all hover:bg-slate-100 active:scale-95"
-              >
-                Login
-              </button>
+               <button
+                 type="button"
+                 onClick={openLoginModal}
+                 className="rounded-lg border border-slate-900 px-6 py-2 text-sm font-bold text-slate-900 transition-all hover:bg-slate-100 active:scale-95"
+               >
+                 Login
+               </button>
 
-              <button
-                type="button"
-                onClick={() => router.push("/signup")}
-                className="rounded-lg bg-slate-900 px-6 py-2 text-sm font-bold text-white transition-all hover:bg-slate-800 active:scale-95 3xl:py-3"
-              >
-                Register
-              </button>
+               <button
+                 type="button"
+                 onClick={openSignupModal}
+                 className="rounded-lg bg-slate-900 px-6 py-2 text-sm font-bold text-white transition-all hover:bg-slate-800 active:scale-95 3xl:py-3"
+               >
+                 Register
+               </button>
             </>
           )}
         </div>

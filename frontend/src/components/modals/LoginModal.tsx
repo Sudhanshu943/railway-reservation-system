@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { useModal } from "./ModalProvider";
 import { useAuth } from "@/hooks/useAuth";
@@ -15,8 +14,7 @@ interface LoginModalProps {
 }
 
 export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
-  const router = useRouter();
-  const { closeLoginModal, openSignupModal } = useModal();
+  const { closeLoginModal, openSignupModal, handleAuthSuccess } = useModal();
   const { login } = useAuth();
   const { addToast } = useToast();
 
@@ -43,8 +41,8 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
       const response = await authAPI.login(formData.email, formData.password);
       login(response.access_token, response.user);
       addToast(`Welcome back, ${response.user.name}!`, "success");
-      closeLoginModal();
-      router.push("/");
+      setFormData({ email: "", password: "" });
+      handleAuthSuccess();
     } catch (err: unknown) {
       const error = err as { response?: { data?: { detail?: string } } };
       const errorMessage = error?.response?.data?.detail || "Login failed. Please try again.";
@@ -54,26 +52,26 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
     }
   };
 
-  const handleGoogleSuccess = async (credentialResponse: any) => {
-    setLoading(true);
-    try {
-      const response = await authAPI.googleLogin(credentialResponse.credential);
-      login(response.access_token, response.user);
-      addToast(`Welcome, ${response.user.name}!`, "success");
-      closeLoginModal();
-      router.push("/");
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { detail?: string } } };
-      const errorMessage = error?.response?.data?.detail || "Google login failed. Please try again.";
-      addToast(errorMessage, "error");
-    } finally {
-      setLoading(false);
-    }
-  };
+   const handleGoogleSuccess = useCallback(async (credentialResponse: any) => {
+     setLoading(true);
+     try {
+       const response = await authAPI.googleLogin(credentialResponse.credential);
+       login(response.access_token, response.user);
+       addToast(`Welcome, ${response.user.name}!`, "success");
+       setFormData({ email: "", password: "" });
+       handleAuthSuccess();
+     } catch (err: unknown) {
+       const error = err as { response?: { data?: { detail?: string } } };
+       const errorMessage = error?.response?.data?.detail || "Google login failed. Please try again.";
+       addToast(errorMessage, "error");
+     } finally {
+       setLoading(false);
+     }
+   }, [authAPI, login, addToast, handleAuthSuccess]);
 
-  const handleGoogleError = () => {
-    addToast("Google login failed", "error");
-  };
+   const handleGoogleError = useCallback(() => {
+     addToast("Google login failed", "error");
+   }, [addToast]);
 
   const switchToSignup = () => {
     closeLoginModal();
@@ -94,8 +92,11 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
         <div className="mb-4 flex justify-end">
           <button
             type="button"
-            onClick={onClose}
-            className="text-on-surface-variant transition-colors hover:text-on-surface"
+            onClick={() => {
+              closeLoginModal();
+              onClose();
+            }}
+            className="cursor-pointer text-on-surface-variant transition-colors hover:text-on-surface"
             aria-label="Close login modal"
           >
             <span className="material-symbols-outlined text-2xl">close</span>
