@@ -76,7 +76,7 @@ export default function SignupModal({ isOpen, onClose }: SignupModalProps) {
      setLoading(true);
      try {
        const response = await authAPI.googleLogin(credentialResponse.credential);
-       login(response.access_token, response.user);
+      login(response.access_token, response.refresh_token, response.user);
        addToast(`Welcome, ${response.user.name}!`, "success");
        setFormData({ name: "", email: "", password: "", confirmPassword: "" });
        handleAuthSuccess();

@@ -46,8 +46,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
-  const login = (token: string, userData: User) => {
+  const login = (token: string, refreshToken: string, userData: User) => {
     localStorage.setItem("token", token);
+    localStorage.setItem("refreshToken", refreshToken);
     localStorage.setItem("user", JSON.stringify(userData));
     setIsLoggedIn(true);
     setUser(userData);
@@ -60,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("Logout error:", err);
     }
     localStorage.removeItem("token");
+    localStorage.removeItem("refreshToken");
     localStorage.removeItem("user");
     setIsLoggedIn(false);
     setUser(null);

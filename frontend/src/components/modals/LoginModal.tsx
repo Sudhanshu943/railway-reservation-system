@@ -40,7 +40,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
     try {
       const response = await authAPI.login(formData.email, formData.password);
-      login(response.access_token, response.user);
+      login(response.access_token, response.refresh_token, response.user);
       addToast(`Welcome back, ${response.user.name}!`, "success");
       setFormData({ email: "", password: "" });
       handleAuthSuccess();
@@ -61,7 +61,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
      setLoading(true);
      try {
        const response = await authAPI.googleLogin(credentialResponse.credential);
-       login(response.access_token, response.user);
+        login(response.access_token, response.refresh_token, response.user);
        addToast(`Welcome, ${response.user.name}!`, "success");
        setFormData({ email: "", password: "" });
        handleAuthSuccess();

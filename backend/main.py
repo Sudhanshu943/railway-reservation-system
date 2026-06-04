@@ -7,7 +7,7 @@ import string
 import logging
 import re
 from database import get_db, SessionLocal, User, Train, Booking, create_tables, engine, Base
-from auth import hash_password, verify_password, create_access_token, get_current_user, verify_google_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from auth import hash_password, verify_password, create_access_token, create_refresh_token, get_current_user, verify_google_token, decode_token, ACCESS_TOKEN_EXPIRE_MINUTES
 from schemas import *
 
 # Setup logging
@@ -167,8 +167,9 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(user)
         token = create_access_token({"sub": user.email})
+        refresh_token = create_refresh_token({"sub": user.email})
         logger.info(f"✓ New user registered: {user.email}")
-        return {"access_token": token, "token_type": "bearer", "user": user}
+        return {"access_token": token, "refresh_token": refresh_token, "token_type": "bearer", "user": user}
     except Exception as e:
         db.rollback()
         logger.error(f"Registration error: {e}")
@@ -184,8 +185,9 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
             logger.warning(f"Failed login attempt: {user_data.email}")
             raise HTTPException(status_code=401, detail="Invalid credentials")
         token = create_access_token({"sub": user.email})
+        refresh_token = create_refresh_token({"sub": user.email})
         logger.info(f"✓ User logged in: {user.email}")
-        return {"access_token": token, "token_type": "bearer", "user": user}
+        return {"access_token": token, "refresh_token": refresh_token, "token_type": "bearer", "user": user}
     except Exception as e:
         logger.error(f"Login error: {e}")
         raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")
@@ -230,18 +232,18 @@ def google_login(request: GoogleLoginRequest, response: Response, db: Session = 
         
         # Create JWT token
         access_token = create_access_token({"sub": user.email})
+        refresh_token = create_refresh_token({"sub": user.email})
         
-        # Set HTTP-only secure cookie
         response.set_cookie(
             key="access_token",
             value=access_token,
             httponly=True,
-            secure=True,  # Only send over HTTPS in production
+            secure=True,
             samesite="lax",
             max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60
         )
         
-        return {"access_token": access_token, "token_type": "bearer", "user": user}
+        return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer", "user": user}
     except HTTPException:
         raise
     except Exception as e:
@@ -260,6 +262,27 @@ def logout(response: Response):
 def get_me(current_user: User = Depends(get_current_user)):
     """Get current user info"""
     return current_user
+
+
+@app.post("/api/auth/refresh", response_model=TokenResponse, tags=["Authentication"])
+def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):
+    try:
+        payload = decode_token(request.refresh_token, expected_type="refresh")
+        email = payload.get("sub")
+        if not email:
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
+        new_access = create_access_token({"sub": user.email})
+        new_refresh = create_refresh_token({"sub": user.email})
+        logger.info(f"Token refreshed for {user.email}")
+        return {"access_token": new_access, "refresh_token": new_refresh, "token_type": "bearer", "user": user}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Token refresh failed: {e}")
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
 
 
 # ─── TRAIN ROUTES ────────────────────────────────────────────────────────────

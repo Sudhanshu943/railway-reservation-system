@@ -8,17 +8,98 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true, // Enable credentials for cookies
+  withCredentials: true,
 });
 
-// Add token to requests if it exists
+let isRefreshing = false;
+let refreshQueue: Array<{
+  resolve: (token: string) => void;
+  reject: (error: unknown) => void;
+}> = [];
+
+const processQueue = (error: unknown, token: string | null = null) => {
+  refreshQueue.forEach((p) => {
+    if (error) {
+      p.reject(error);
+    } else if (token) {
+      p.resolve(token);
+    }
+  });
+  refreshQueue = [];
+};
+
+const getNewTokens = async (): Promise<{ access_token: string; refresh_token: string }> => {
+  const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
+  if (!refreshToken) {
+    throw new Error('No refresh token');
+  }
+  const response = await axios.post(`${API_BASE_URL}/api/auth/refresh`, {
+    refresh_token: refreshToken,
+  });
+  return response.data;
+};
+
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (originalRequest.url === '/api/auth/refresh') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
+        return Promise.reject(error);
+      }
+
+      originalRequest._retry = true;
+
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          refreshQueue.push({
+            resolve: (token: string) => {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+              resolve(apiClient(originalRequest));
+            },
+            reject,
+          });
+        });
+      }
+
+      isRefreshing = true;
+      try {
+        const data = await getNewTokens();
+        localStorage.setItem('token', data.access_token);
+        localStorage.setItem('refreshToken', data.refresh_token);
+        originalRequest.headers.Authorization = `Bearer ${data.access_token}`;
+        processQueue(null, data.access_token);
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Trains API
 export interface StationSuggestions {
@@ -64,6 +145,7 @@ interface RegisterData {
 
 interface LoginResponse {
   access_token: string;
+  refresh_token: string;
   token_type: string;
   user: {
     id: number;
