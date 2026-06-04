@@ -55,7 +55,7 @@ export default function SignupModal({ isOpen, onClose }: SignupModalProps) {
         password: formData.password,
       });
 
-      login(response.access_token, response.user);
+      login(response.access_token, response.refresh_token, response.user);
       addToast(`Welcome, ${response.user.name}! Account created successfully.`, "success");
       setFormData({ name: "", email: "", password: "", confirmPassword: "" });
       handleAuthSuccess();
