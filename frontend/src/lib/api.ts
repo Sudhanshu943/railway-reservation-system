@@ -117,9 +117,9 @@ export const trainsAPI = {
     const response = await apiClient.get('/api/trains/stations');
     return response.data;
   },
-  search: async (source: string, destination: string): Promise<Train[]> => {
+  search: async (source: string, destination: string, journeyDate?: string): Promise<Train[]> => {
     const response = await apiClient.get('/api/trains/search', {
-      params: { source, destination },
+      params: { source, destination, journey_date: journeyDate },
     });
     return response.data;
   },

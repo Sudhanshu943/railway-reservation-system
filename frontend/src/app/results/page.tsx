@@ -35,7 +35,8 @@ function ResultsContent() {
       try {
         setLoading(true);
         setError(null);
-        const data = await trainsAPI.search(from, to);
+        const searchDate = searchParams.get("date") || undefined;
+        const data = await trainsAPI.search(from, to, searchDate);
         setTrains(data);
       } catch (err) {
         console.error("Error fetching trains:", err);

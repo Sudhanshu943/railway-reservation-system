@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { useModal } from "@/components/modals/ModalProvider";
 
+const DAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
 interface ClassOption {
   code: string;
   price: string;
@@ -18,6 +20,8 @@ interface AvailabilityRow {
   status: string;
   price: string;
   bookable: boolean;
+  ymd: string;
+  doesRun: boolean;
 }
 
 interface TrainCardProps {
@@ -74,7 +78,19 @@ export default function TrainCard({
   const toStation = destination || "Unknown";
   const depTime = departure_time || "00:00";
   const arrTime = arrival_time || "00:00";
-  const runDays = days_of_operation || "Unknown";
+  const runDays = days_of_operation
+    ? days_of_operation.split(",").join(", ")
+    : "Unknown";
+
+  const trainRunsOnDay = (date: Date): boolean => {
+    if (!runDaysSet) return true;
+    return runDaysSet.has(DAY_ABBR[date.getDay()]);
+  };
+
+  const runDaysSet = useMemo(() => {
+    if (!days_of_operation) return null;
+    return new Set(days_of_operation.split(",").map(d => d.trim()));
+  }, [days_of_operation]);
 
   let trainStatus: "available" | "limited" | "soldout" = "available";
 
@@ -132,21 +148,26 @@ export default function TrainCard({
     const startDate = searchDate ? new Date(searchDate) : new Date();
     startDate.setHours(0, 0, 0, 0);
 
+    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
     return Array.from({ length: 6 }, (_, i) => {
       const d = new Date(startDate);
       d.setDate(d.getDate() + i);
-      const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const dayAbbr = DAY_ABBR[d.getDay()];
+      const dayName = dayAbbr;
+      const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const doesRun = trainRunsOnDay(d);
       return {
-        date: `${String(d.getDate()).padStart(2, "0")} ${monthNames[d.getMonth()]}`,
-        day: dayNames[d.getDay()],
-        status: seatsLabel,
-        price: basePrice,
-        bookable: isBookable,
-        ymd: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
+        date: `${String(d.getDate()).padStart(2, "0")} ${monthNames[d.getMonth()]}${doesRun ? "" : " (No)"}`,
+        day: dayAbbr,
+        status: doesRun ? (isBookable ? seatsLabel : "Sold Out") : "Not operational",
+        price: doesRun ? basePrice : "",
+        bookable: doesRun && isBookable,
+        ymd,
+        doesRun,
       };
-    }) as (AvailabilityRow & { ymd: string })[];
-  }, [selectedFareOption, available_seats, searchParams]);
+    });
+  }, [selectedFareOption, available_seats, searchParams, runDaysSet]);
 
   const handleBooking = (seatClass: string, bookable: boolean, rowDate?: string) => {
     if (!seatClass || !bookable) return;
@@ -288,7 +309,7 @@ export default function TrainCard({
                   <div className="sm:text-right">
                     <button
                       type="button"
-                      onClick={() => handleBooking(selectedClass, row.bookable, (row as typeof row & { ymd: string }).ymd)}
+                      onClick={() => handleBooking(selectedClass, row.bookable, row.ymd)}
                       disabled={!row.bookable}
                       className={`w-full rounded-lg px-4 py-2 text-sm font-semibold sm:w-auto ${
                         row.bookable

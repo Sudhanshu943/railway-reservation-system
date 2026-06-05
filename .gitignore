@@ -40,3 +40,6 @@ npm-debug.log*
 # Temp
 tmp/
 temp/
+
+# database_dump.sql
+schema.sql

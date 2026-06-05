@@ -32,6 +32,13 @@ const CLASS_PRICE_KEY: Record<string, keyof Train> = {
   GEN: "price_general",
 };
 
+const DAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function formatDaysOfOperation(days?: string): string {
+  if (!days) return "Daily";
+  return days.split(",").join(", ");
+}
+
 interface PassengerForm {
   name: string;
   age: string;
@@ -425,7 +432,7 @@ export default function BookingPage() {
                     {quota} Quota
                   </span>
                   <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-600">
-                    Runs: {train.days_of_operation}
+                    Runs: {formatDaysOfOperation(train.days_of_operation)}
                   </span>
                 </div>
               </div>

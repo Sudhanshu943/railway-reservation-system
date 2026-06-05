@@ -5,6 +5,15 @@ import { useState } from "react";
 import DatePicker from "@/components/DatePicker";
 import StationAutocomplete from "@/components/StationAutocomplete";
 
+function getNextDay(): string {
+  const today = new Date();
+  today.setDate(today.getDate() + 1);
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export default function SearchPanel() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -12,11 +21,12 @@ export default function SearchPanel() {
   const [formData, setFormData] = useState(() => ({
     from: searchParams.get("from") || "",
     to: searchParams.get("to") || "",
-    date: searchParams.get("date") || "",
+    date: searchParams.get("date") || getNextDay(),
     travelClass: searchParams.get("class") || "AC 2 Tier (2A)",
     flexibleDate: false,
     withBerth: true,
   }));
+  const [errors, setErrors] = useState({ from: "", to: "", date: "" });
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -30,6 +40,12 @@ export default function SearchPanel() {
           ? target.checked
           : value,
     }));
+    setErrors((prev) => ({ ...prev, [name]: "" }));
+  };
+
+  const handleStationChange = (field: "from" | "to", value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    setErrors((prev) => ({ ...prev, [field]: "" }));
   };
 
   const handleSwap = () => {
@@ -38,6 +54,25 @@ export default function SearchPanel() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    const nextErrors = { from: "", to: "", date: "" };
+    let hasError = false;
+
+    if (!formData.from.trim()) {
+      nextErrors.from = "Please enter source station";
+      hasError = true;
+    }
+    if (!formData.to.trim()) {
+      nextErrors.to = "Please enter destination station";
+      hasError = true;
+    }
+    if (!formData.date) {
+      nextErrors.date = "Please select date";
+      hasError = true;
+    }
+
+    setErrors(nextErrors);
+    if (hasError) return;
+
     const from = normalizeStationInput(formData.from);
     const to = normalizeStationInput(formData.to);
 
@@ -60,7 +95,8 @@ export default function SearchPanel() {
             label="From"
             icon="location_on"
             value={formData.from}
-            onChange={(from) => setFormData((prev) => ({ ...prev, from }))}
+            error={errors.from}
+            onChange={(from) => handleStationChange("from", from)}
             placeholder="Departure City"
             stationList="sources"
           />
@@ -80,7 +116,8 @@ export default function SearchPanel() {
             label="To"
             icon="near_me"
             value={formData.to}
-            onChange={(to) => setFormData((prev) => ({ ...prev, to }))}
+            error={errors.to}
+            onChange={(to) => handleStationChange("to", to)}
             placeholder="Arrival City"
             stationList="destinations"
           />
@@ -89,8 +126,12 @@ export default function SearchPanel() {
             <FieldLabel>Date</FieldLabel>
             <DatePicker
               value={formData.date}
-              onChange={(d) => setFormData((prev) => ({ ...prev, date: d }))}
+              onChange={(d) => {
+                setFormData((prev) => ({ ...prev, date: d }));
+                setErrors((prev) => ({ ...prev, date: "" }));
+              }}
               placeholder="Select travel date"
+              error={errors.date}
             />
           </div>
 

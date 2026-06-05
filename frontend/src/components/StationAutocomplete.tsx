@@ -14,6 +14,7 @@ interface StationAutocompleteProps {
   placeholder: string;
   stationList: StationList;
   variant?: Variant;
+  error?: string;
 }
 
 export default function StationAutocomplete({
@@ -24,6 +25,7 @@ export default function StationAutocomplete({
   placeholder,
   stationList,
   variant = "home",
+  error,
 }: StationAutocompleteProps) {
   const [open, setOpen] = useState(false);
   const [stations, setStations] = useState<string[]>([]);
@@ -72,8 +74,8 @@ export default function StationAutocomplete({
       <div
         className={
           compact
-            ? "flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 transition focus-within:border-secondary focus-within:bg-white"
-            : "cyan-focus flex items-center rounded-lg border border-outline bg-surface-container-lowest p-3"
+            ? `flex items-center gap-2 rounded-lg border px-3 py-2 transition focus-within:border-secondary focus-within:bg-white ${error ? "border-red-400 bg-white" : "border-slate-200 bg-slate-50"}`
+            : `cyan-focus flex items-center rounded-lg border p-3 ${error ? "border-red-400 bg-white" : "border-outline bg-surface-container-lowest"}`
         }
       >
         <span
@@ -93,7 +95,7 @@ export default function StationAutocomplete({
             loadSuggestions();
           }}
           onFocus={loadSuggestions}
-          onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+          onBlur={() => setTimeout(() => setOpen(false), 120)}
           placeholder={placeholder}
           required
           className={
@@ -103,6 +105,7 @@ export default function StationAutocomplete({
           }
         />
       </div>
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
 
       {open && (
         <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-[0_18px_45px_rgb(8_19_42/0.14)]">

@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from datetime import timedelta
+from datetime import timedelta, datetime
 import random
 import string
 import logging
@@ -322,20 +322,34 @@ def get_train_stations(db: Session = Depends(get_db)):
     }
 
 
+DAY_ABBR = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+
 @app.get("/api/trains/search", response_model=list[TrainOut], tags=["Trains"])
-def search_trains(source: str, destination: str, db: Session = Depends(get_db)):
-    """Search trains by source and destination"""
+def search_trains(source: str, destination: str, db: Session = Depends(get_db), journey_date: str = ""):
+    """Search trains by source and destination, optionally filtered by journey date"""
     source_query = normalize_station_query(source)
     destination_query = normalize_station_query(destination)
     if not source_query or not destination_query:
         raise HTTPException(status_code=400, detail="Source and destination are required")
 
-    trains = db.query(Train).filter(
+    query = db.query(Train).filter(
         Train.source.ilike(f"%{source_query}%"),
         Train.destination.ilike(f"%{destination_query}%"),
         Train.is_active == True
-    ).all()
-    logger.info(f"Train search: {source_query} to {destination_query}, found {len(trains)} trains")
+    )
+
+    trains = query.all()
+
+    if journey_date:
+        try:
+            dt = datetime.strptime(journey_date, "%Y-%m-%d")
+            target_day = DAY_ABBR[dt.weekday()]
+            trains = [t for t in trains if target_day in (t.days_of_operation or "").split(",")]
+        except ValueError:
+            pass
+
+    logger.info(f"Train search: {source_query} to {destination_query}, date={journey_date}, found {len(trains)} trains")
     return trains
 
 
@@ -575,6 +589,28 @@ def create_booking(booking_data: BookingCreate, db: Session = Depends(get_db),
         db.rollback()
         logger.error(f"Booking creation failed: {e}")
         raise HTTPException(status_code=500, detail="Booking creation failed")
+
+
+@app.get("/api/trains/{train_id}/available-dates", tags=["Trains"])
+def get_train_available_dates(train_id: int, days: int = 10, db: Session = Depends(get_db)):
+    """Get the dates (next N days) on which a train actually operates"""
+    train = db.query(Train).filter(Train.id == train_id).first()
+    if not train:
+        raise HTTPException(status_code=404, detail="Train not found")
+
+    if not train.days_of_operation:
+        raise HTTPException(status_code=400, detail="No days of operation configured")
+
+    run_days = set(d.strip() for d in train.days_of_operation.split(","))
+    today = datetime.now()
+    available = []
+    for i in range(days):
+        d = today + timedelta(days=i)
+        day_abbr = DAY_ABBR[d.weekday()]
+        if day_abbr in run_days:
+            available.append(d.strftime("%Y-%m-%d"))
+
+    return {"train_id": train_id, "available_dates": available}
 
 
 @app.get("/api/bookings/my", response_model=list[BookingOut], tags=["Bookings"])

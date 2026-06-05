@@ -7,6 +7,7 @@ interface DatePickerProps {
   onChange: (date: string) => void;
   placeholder?: string;
   className?: string;
+  error?: string;
   /** "default" uses the glass-panel InputShell style; "compact" matches flat search bars */
   variant?: "default" | "compact";
 }
@@ -33,6 +34,7 @@ export default function DatePicker({
   placeholder = "Select date",
   className = "",
   variant = "default",
+  error,
 }: DatePickerProps) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -120,20 +122,23 @@ export default function DatePicker({
         onClick={() => setOpen((o) => !o)}
         className={`flex w-full items-center gap-2 text-left transition focus:outline-none
           ${variant === "compact"
-            ? "rounded-lg border border-slate-200 bg-orange-50/40 px-3 py-2 hover:border-orange-400 hover:bg-white"
-            : "rounded-lg border border-outline bg-surface-container-lowest p-3 hover:border-primary"
+            ? `rounded-lg border px-3 py-2 ${error ? "border-red-400 bg-white" : "border-slate-200 bg-orange-50/40 hover:border-orange-400 hover:bg-white"}`
+            : `rounded-lg border p-3 ${error ? "border-red-400 bg-white" : "border-outline bg-surface-container-lowest hover:border-primary"}`
           }`}
       >
-        <span className={`material-symbols-outlined text-xl ${variant === "compact" ? "text-orange-400" : "text-on-surface-variant"}`}>
+        <span className={`material-symbols-outlined text-xl ${variant === "compact" ? (error ? "text-red-500" : "text-orange-400") : "text-on-surface-variant"}`}>
           calendar_month
         </span>
         <span className={`flex-1 leading-6 ${variant === "compact" ? "text-sm" : "text-base"} ${value ? "text-slate-900" : "text-slate-400"}`}>
           {value ? formatDisplay(value) : placeholder}
         </span>
-        <span className={`material-symbols-outlined text-base text-slate-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`}>
+        <span className={`material-symbols-outlined text-base ${error ? "text-red-500" : "text-slate-400"} transition-transform duration-200 ${open ? "rotate-180" : ""}`}>
           expand_more
         </span>
       </button>
+      {error && (
+        <p className="mt-1 text-xs text-red-600">{error}</p>
+      )}
 
       {/* Calendar dropdown */}
       {open && (
