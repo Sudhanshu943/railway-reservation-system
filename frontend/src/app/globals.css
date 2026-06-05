@@ -1,0 +1,162 @@
+/* globals.css */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+
+@theme {
+  /* Colors */
+  --color-surface: #ffffff;
+  --color-surface-dim: #d3dcdc;
+  --color-surface-bright: #f3fbfb;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f6f7fc;
+  --color-surface-container: #f1f2f8;
+  --color-surface-container-high: #ebeef5;
+  --color-surface-container-highest: #dce4e5;
+  --color-on-surface: #10213f;
+  --color-on-surface-variant: #5a6475;
+  --color-inverse-surface: #2a3233;
+  --color-inverse-on-surface: #eaf2f3;
+  --color-outline: #b7beca;
+  --color-outline-variant: #d8dce5;
+  --color-surface-tint: #006970;
+  --color-primary: #062a5b;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #062a5b;
+  --color-on-primary-container: #ffffff;
+  --color-inverse-primary: #00dbe9;
+  --color-secondary: #a95300;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #d5dfff;
+  --color-on-secondary-container: #58627d;
+  --color-tertiary: #715c00;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #fed639;
+  --color-on-tertiary-container: #715d00;
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+  --color-primary-fixed: #7df4ff;
+  --color-primary-fixed-dim: #00dbe9;
+  --color-on-primary-fixed: #002022;
+  --color-on-primary-fixed-variant: #004f54;
+  --color-secondary-fixed: #d9e2ff;
+  --color-secondary-fixed-dim: #bcc6e5;
+  --color-on-secondary-fixed: #101b32;
+  --color-on-secondary-fixed-variant: #3c4660;
+  --color-tertiary-fixed: #ffe179;
+  --color-tertiary-fixed-dim: #eac324;
+  --color-on-tertiary-fixed: #231b00;
+  --color-on-tertiary-fixed-variant: #554500;
+  --color-background: #f4f5fb;
+  --color-on-background: #151d1e;
+  --color-surface-variant: #dce4e5;
+
+  /* Typography families */
+  --font-display-lg: "Inter", sans-serif;
+  --font-headline-lg: "Inter", sans-serif;
+  --font-headline-md: "Inter", sans-serif;
+  --font-body-lg: "Inter", sans-serif;
+  --font-body-md: "Inter", sans-serif;
+  --font-label-md: "Inter", sans-serif;
+  --font-label-sm: "Inter", sans-serif;
+  --font-sans: "Inter", sans-serif;
+}
+
+@layer base {
+  .material-symbols-outlined {
+    font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  }
+
+  html,
+  body {
+    background-color: var(--color-background);
+    color: var(--color-on-background);
+    font-family: "Inter", sans-serif;
+  }
+
+  body {
+    margin: 0;
+  }
+
+  /* Typography utility classes */
+  .text-display-lg {
+    @apply text-5xl font-bold leading-tight -tracking-wide;
+  }
+
+  .text-display-lg-mobile {
+    @apply text-4xl font-bold leading-tight -tracking-wide;
+  }
+
+  .text-headline-lg {
+    @apply text-3xl font-semibold leading-tight -tracking-wide;
+  }
+
+  .text-headline-lg-mobile {
+    @apply text-2xl font-semibold leading-tight;
+  }
+
+  .text-headline-md {
+    @apply text-2xl font-semibold leading-tight;
+  }
+
+  .text-body-lg {
+    @apply text-lg leading-relaxed;
+  }
+
+  .text-body-md {
+    @apply text-base leading-relaxed;
+  }
+
+  .text-label-md {
+    @apply text-sm font-semibold leading-tight tracking-wider;
+  }
+
+  .text-label-sm {
+    @apply text-xs font-medium leading-tight;
+  }
+
+  .text-label-bold {
+    @apply text-sm font-bold;
+  }
+}
+
+/* Hero Section Gradient */
+.hero-gradient {
+  background: linear-gradient(
+    180deg,
+    var(--color-surface-container-low) 0%,
+    var(--color-background) 100%
+  );
+}
+
+@keyframes trainRide {
+  from {
+    transform: translate3d(-520px, -50%, 0);
+  }
+  to {
+    transform: translate3d(calc(100vw + 520px), -50%, 0);
+  }
+}
+
+
+/* Reusable helpers */
+.glass-panel {
+  background: rgb(255 255 255 / 0.42);
+  border: 1px solid rgb(255 255 255 / 0.28);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 20px 50px rgb(8 19 42 / 0.08);
+  border-radius: 1rem;
+}
+
+.ambient-card {
+  background: var(--color-surface-container-lowest);
+  border: 1px solid var(--color-outline-variant);
+  box-shadow: 0 12px 32px rgb(8 19 42 / 0.06);
+  border-radius: 1rem;
+}
+
+.cyan-focus:focus-within {
+  border-color: var(--color-primary-container);
+  box-shadow: 0 0 0 4px rgb(0 240 255 / 0.18);
+}
